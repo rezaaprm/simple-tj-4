@@ -1,0 +1,330 @@
+@extends('layouts.backend')
+
+@section('title', 'Dashboard')
+
+@section('content')
+<div class="row mt-4">
+    <div class="col-lg-3 col-6 mt-4">
+        <div class="small-box bg-info">
+            <div class="inner">
+                <h3>{{ number_format($jumlah_koridor) }}</h3>
+                <p>Koridor / Routes</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-route"></i>
+            </div>
+            <a href="{{ route('admin.koridor.index') }}" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-6 mt-4">
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h3>{{ number_format($jumlah_halte) }}</h3>
+                <p>Halte / Stops</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <a href="{{ route('admin.halte.index') }}" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-6 mt-4">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h3>{{ number_format($jumlah_perjalanan) }}</h3>
+                <p>Perjalanan / Trips</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-bus"></i>
+            </div>
+            <a href="{{ route('admin.transjakarta.map') }}" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-6 mt-4">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h3>{{ number_format($jumlah_pencarian) }}</h3>
+                <p>Pencarian / Logs</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <a href="{{ route('admin.pencarian.log') }}" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card card-primary card-outline">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-chart-bar mr-2"></i>
+                    Statistik Pencarian
+                </h3>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <tr>
+                        <th>Rata-rata Waktu Eksekusi</th>
+                        <td>{{ number_format($rata_waktu ?? 0, 2) }} ms</td>
+                    </tr>
+                    <tr>
+                        <th>Pencarian Hari Ini</th>
+                        <td>{{ $pencarian_hari_ini }} kali</td>
+                    </tr>
+                    <tr>
+                        <th>Dataset GTFS</th>
+                        <td>
+                            <button class="btn btn-sm btn-primary" id="openDataModalBtn">
+                                <i class="fas fa-database"></i> Lihat Data
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Halaman Frontend</th>
+                        <td>
+                            <!-- <a href="{{ url('/frontend') }}" class="btn btn-sm btn-success" target="_blank">
+                                <i class="fas fa-globe"></i> Lihat Profile
+                            </a> -->
+                            <a href="{{ url('/') }}" class="btn btn-sm btn-success">
+                                <i class="fas fa-globe"></i> Lihat Profile
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card card-success card-outline">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-map-marked-alt mr-2"></i>
+                    Visualisasi
+                </h3>
+            </div>
+            <div class="card-body">
+                <img src="{{ asset('image/data_jumlah_halte_transjakarta.png') }}"
+                    alt="Grafik Halte TransJakarta"
+                    class="img-fluid">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Data GTFS (sama persis dengan Projek 5) -->
+<div id="gtfsDataModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-height: 80vh; overflow-y: auto; position: relative;">
+        <span id="closeDataModal" style="position: absolute; right: 20px; top: 10px; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+
+        <h3>📊 Data Mentah Transjakarta (GTFS)</h3>
+        <hr>
+
+        <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label>Tampilkan:</label>
+                <select id="dataLimitFilter" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd;">
+                    <option value="10">10 Data</option>
+                    <option value="50">50 Data</option>
+                    <option value="100">100 Data</option>
+                    <option value="500">500 Data</option>
+                    <option value="all">Semua Data</option>
+                </select>
+            </div>
+
+            <!-- Dropdown untuk pilih jenis JSON -->
+            <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+                <label style="white-space: nowrap;">Tampilkan JSON :</label>
+                <select id="jsonTypeFilter" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd; background: white; min-width: 120px;">
+                    <option value="semua">Semua</option>
+                    <option value="halte">Halte</option>
+                    <option value="shape">Shape</option>
+                    <option value="rute">Rute</option>
+                    <option value="warna">Warna</option>
+                </select>
+                <a href="#" id="jsonViewBtn" target="_blank"
+                    style="padding: 6px 15px; background: white; border: 1px solid #333; border-radius: 4px; color: #333; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-code"></i> Lihat JSON
+                </a>
+            </div>
+        </div>
+
+        <h4>Daftar Rute</h4>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead style="background: #f2f2f2;">
+                <tr>
+                    <th style="padding: 8px; text-align: left;">ID</th>
+                    <th style="padding: 8px; text-align: left;">Nama Singkat</th>
+                    <th style="padding: 8px; text-align: left;">Nama Panjang</th>
+                </tr>
+            </thead>
+            <tbody id="modalRouteTableBody"></tbody>
+        </table>
+
+        <h4>Daftar Halte (Seluruh Koridor)</h4>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead style="background: #f2f2f2;">
+                <tr>
+                    <th style="padding: 8px; text-align: left;">ID</th>
+                    <th style="padding: 8px; text-align: left;">Nama Halte</th>
+                    <th style="padding: 8px; text-align: left;">Lat</th>
+                    <th style="padding: 8px; text-align: left;">Lon</th>
+                </tr>
+            </thead>
+            <tbody id="modalStopTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+    // ==================== MODAL DATA GTFS ====================
+    const modal = document.getElementById("gtfsDataModal");
+    const btnLihat = document.getElementById("openDataModalBtn");
+    const spanClose = document.getElementById("closeDataModal");
+    const filterSelect = document.getElementById("dataLimitFilter");
+    const jsonTypeFilter = document.getElementById("jsonTypeFilter");
+    const jsonViewBtn = document.getElementById("jsonViewBtn");
+
+    // Data routes untuk modal (ambil dari controller atau fetch)
+    let routesData = [];
+
+    // Fungsi untuk mengambil data routes dari server
+    async function fetchRoutesData() {
+        try {
+            const response = await fetch('/routes-json');
+            const result = await response.json();
+            if (result.success) {
+                routesData = result.data;
+                return routesData;
+            }
+            return [];
+        } catch (error) {
+            console.error('Error fetching routes:', error);
+            return [];
+        }
+    }
+
+    // Fungsi untuk mengambil semua halte unik dari routes
+    function getAllUniqueStops() {
+        const allStops = [];
+        const uniqueIds = new Set();
+
+        routesData.forEach(route => {
+            if (route.stops) {
+                route.stops.forEach(stop => {
+                    if (!uniqueIds.has(stop.id)) {
+                        uniqueIds.add(stop.id);
+                        allStops.push(stop);
+                    }
+                });
+            }
+        });
+
+        return allStops;
+    }
+
+    function renderModalData(limit) {
+        const routeBody = document.getElementById("modalRouteTableBody");
+        const stopBody = document.getElementById("modalStopTableBody");
+
+        let displayRoutes = (limit === 'all') ? routesData : routesData.slice(0, parseInt(limit));
+        let allStops = getAllUniqueStops();
+        let displayStops = (limit === 'all') ? allStops : allStops.slice(0, parseInt(limit));
+
+        routeBody.innerHTML = displayRoutes.map(route => `
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 8px;">${route.id}</td>
+                <td style="padding: 8px;">${route.short_name}</td>
+                <td style="padding: 8px;">${route.long_name}</td>
+            </tr>
+        `).join('');
+
+        stopBody.innerHTML = displayStops.map(stop => `
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 8px;">${stop.id}</td>
+                <td style="padding: 8px;">${stop.name}</td>
+                <td style="padding: 8px;">${stop.lat}</td>
+                <td style="padding: 8px;">${stop.lng}</td>
+            </tr>
+        `).join('');
+    }
+
+    // Event listener untuk filter data di modal
+    if (filterSelect) {
+        filterSelect.onchange = function() {
+            renderModalData(this.value);
+        };
+    }
+
+    // Event listener untuk membuka modal
+    if (btnLihat) {
+        btnLihat.onclick = async function() {
+            // Ambil data routes jika belum ada
+            if (routesData.length === 0) {
+                await fetchRoutesData();
+            }
+            modal.style.display = "block";
+            renderModalData(filterSelect ? filterSelect.value : '10');
+        };
+    }
+
+    // Event listener untuk menutup modal (tombol X)
+    if (spanClose) {
+        spanClose.onclick = function() {
+            modal.style.display = "none";
+        };
+    }
+
+    // Event listener untuk menutup modal (klik di luar modal)
+    window.onclick = function(e) {
+        if (e.target == modal) {
+            modal.style.display = "none";
+        }
+    };
+
+    // Handler untuk dropdown JSON
+    if (jsonViewBtn && jsonTypeFilter) {
+        jsonViewBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const selectedType = jsonTypeFilter.value;
+            let url = '';
+
+            switch (selectedType) {
+                case 'halte':
+                    url = '/api/json/halte';
+                    break;
+                case 'shape':
+                    url = '/api/json/shape';
+                    break;
+                case 'rute':
+                    url = '/api/json/rute';
+                    break;
+                case 'warna':
+                    url = '/api/json/warna';
+                    break;
+                default:
+                    url = '/routes-json';
+            }
+
+            window.open(url, '_blank');
+        });
+    }
+
+    // Optional: Tambahkan efek hover pada tombol JSON
+    if (jsonViewBtn) {
+        jsonViewBtn.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f0f0f0';
+        });
+        jsonViewBtn.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = 'white';
+        });
+    }
+</script>
+@endpush
+@endsection
