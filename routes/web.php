@@ -19,7 +19,8 @@ use App\Http\Controllers\Backend\InfoStatistikController;
 use App\Http\Controllers\Backend\GaleriController;
 use App\Http\Controllers\Backend\KolaborasiController;
 use App\Http\Controllers\Frontend\FrontendController;
-use App\Models\Kolaborasi;
+
+use App\Http\Controllers\Api\GeocodingController;
 
 // Welcome
 Route::get('/welcome', function () {
@@ -102,6 +103,19 @@ Route::get('/api/json/shape', [TransportasiController::class, 'getJsonShape']);
 Route::get('/api/json/rute', [TransportasiController::class, 'getJsonRute']);
 Route::get('/api/json/warna', [TransportasiController::class, 'getJsonWarna']);
 
+Route::get('/api/json/poi', [TransportasiController::class, 'getJsonPoi']);
+Route::get('/api/json/poi/kategori/{kategori}', [TransportasiController::class, 'getJsonPoiByCategory']);
+
+// Ambil daftar kategori POI (untuk dropdown)
+Route::get('/api/poi/categories', function () {
+    $categories = App\Models\Poi::select('category')
+        ->distinct()
+        ->orderBy('category')
+        ->pluck('category');
+
+    return response()->json($categories);
+});
+
 // ==================== API ROUTES ====================
 Route::prefix('api')->group(function () {
 
@@ -156,3 +170,8 @@ Route::prefix('api')->group(function () {
         return response()->json(['stops' => $stops]);
     });
 });
+
+
+// ==================== ROUTE POI ====================
+Route::get('/api/geocode', [GeocodingController::class, 'geocode']);
+Route::get('/api/nearest-stop', [GeocodingController::class, 'nearestStop']);

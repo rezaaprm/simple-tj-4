@@ -11,13 +11,13 @@ class StopTimeSeeder extends Seeder
     public function run()
     {
         if ($this->command) {
-            $this->command->info('🚀 Import StopTimeSeeder dimulai (ini akan lama)...');
+            $this->command->info('Import StopTimeSeeder');
         }
 
         $path = public_path('gtfs/transjakarta/stop_times.txt');
         if (!file_exists($path)) {
             if ($this->command) {
-                $this->command->error('❌ File stop_times.txt tidak ditemukan!');
+                $this->command->error('File stop_times.txt tidak ditemukan');
             }
             return;
         }
@@ -51,7 +51,7 @@ class StopTimeSeeder extends Seeder
             }
 
             if ($counter % 10000 == 0 && $this->command) {
-                $this->command->line("  ... sudah $counter baris");
+                $this->command->line(" sudah $counter baris");
             }
         }
 
@@ -62,7 +62,7 @@ class StopTimeSeeder extends Seeder
         $total = DB::table('tb_stop_times')->count();
         if ($this->command) {
             $this->command->newLine();
-            $this->command->info("✅ StopTimeSeeder selesai! Total: $total stop times");
+            $this->command->info("StopTimeSeeder selesai, Total $total stop times");
         }
     }
 }

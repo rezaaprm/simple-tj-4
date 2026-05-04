@@ -14,6 +14,10 @@ class AlgoritmaController extends Controller
         // Ambil data rute terakhir dari session (jika ada)
         $lastRoute = Session::get('last_route_calculation', null);
 
+        if ($lastRoute) {
+            \Illuminate\Support\Facades\Log::info('lastRoute walking_info:', $lastRoute['walking_info'] ?? []);
+        }
+
         // Jika ada parameter rute dari request, simpan ke session
         if ($request->has('route_data')) {
             Session::put('last_route_calculation', $request->route_data);
@@ -24,34 +28,78 @@ class AlgoritmaController extends Controller
         // Ambil data dari log pencarian jika ada parameter log_id
         $logData = null;
         $logId = $request->get('log_id');
+        $fromSession = $request->get('from_session', false);
 
         if ($logId) {
             try {
-                $log = PencarianLog::with(['halteAwal', 'halteTujuan'])->find($logId);
+                // JIKA FROM_SESSION = 1, AMBIL DARI SESSION (LENGKAP)
+                if ($fromSession && $lastRoute) {
+                    \Illuminate\Support\Facades\Log::info('=== SESSION DATA ===');
+                    \Illuminate\Support\Facades\Log::info('total_stops: ' . ($lastRoute['total_stops'] ?? 0));
+                    \Illuminate\Support\Facades\Log::info('route_path length: ' . count($lastRoute['route_path'] ?? []));
+                    \Illuminate\Support\Facades\Log::info('route_path sample: ', array_slice($lastRoute['route_path'] ?? [], 0, 3));
 
-                if ($log) {
-                    // Format data log agar sesuai dengan format yang digunakan di view
-                    $logData = [
-                        'id' => $log->id,
-                        'start_stop' => $log->halteAwal->stop_name ?? 'Unknown',
-                        'end_stop' => $log->halteTujuan->stop_name ?? 'Unknown',
-                        'total_distance' => $log->total_jarak,
-                        'total_stops' => $log->node_dikunjungi,
-                        'total_transfers' => $log->total_pindah,
-                        'execution_time' => $log->waktu_eksekusi_ms,
-                        'timestamp' => $log->created_at->toDateTimeString(),
-                        // Buat route_path dari halte awal dan tujuan (karena tidak ada detail halte per langkah di log)
-                        'route_path' => [
-                            ['name' => $log->halteAwal->stop_name ?? 'Unknown', 'order' => 1],
-                            ['name' => $log->halteTujuan->stop_name ?? 'Unknown', 'order' => $log->node_dikunjungi ?? 2]
-                        ],
-                        // Buat koridors dari total_pindah
-                        'koridors' => $this->generateKoridorsFromLog($log),
-                        'is_from_log' => true
-                    ];
+                    $logData = $lastRoute;
+                    $logData['id'] = $logId;
+                    $logData['is_from_session'] = true;
+                    $logData['start_stop'] = $lastRoute['start_stop'] ?? 'Unknown';
+                    $logData['end_stop'] = $lastRoute['end_stop'] ?? 'Unknown';
+                    $logData['total_distance'] = $lastRoute['total_distance'] ?? 0;
+                    $logData['total_stops'] = $lastRoute['total_stops'] ?? 0;
+                    $logData['total_transfers'] = $lastRoute['total_transfers'] ?? 0;
+                    $logData['execution_time'] = $lastRoute['execution_time'] ?? 0;
+                    $logData['timestamp'] = now()->toDateTimeString();
+                }
+                // JIKA TIDAK, AMBIL DARI DATABASE (RINGKASAN)
+                else {
+                    $log = PencarianLog::with(['halteAwal', 'halteTujuan'])->find($logId);
+
+                    if ($log) {
+                        // COBA BACA JSON DARI DATABASE TERLEBIH DAHULU
+                        $routePath = null;
+                        $koridors = null;
+                        $walkingInfo = null;
+
+                        if ($log->route_path_json) {
+                            $routePath = json_decode($log->route_path_json, true);
+                        }
+                        if ($log->koridors_json) {
+                            $koridors = json_decode($log->koridors_json, true);
+                        }
+                        if ($log->walking_info_json) {
+                            $walkingInfo = json_decode($log->walking_info_json, true);
+                        }
+
+                        // Jika tidak ada JSON, gunakan data default (hanya awal & akhir)
+                        if (!$routePath) {
+                            $routePath = [
+                                ['order' => 1, 'name' => $log->halteAwal->stop_name ?? 'Unknown'],
+                                ['order' => $log->node_dikunjungi ?? 2, 'name' => $log->halteTujuan->stop_name ?? 'Unknown']
+                            ];
+                        }
+
+                        if (!$koridors) {
+                            $koridors = $this->generateKoridorsFromLog($log);
+                        }
+
+                        $logData = [
+                            'id' => $log->id,
+                            'start_stop' => $log->halteAwal->stop_name ?? 'Unknown',
+                            'end_stop' => $log->halteTujuan->stop_name ?? 'Unknown',
+                            'total_distance' => $log->total_jarak,
+                            'total_stops' => $log->node_dikunjungi,
+                            'total_transfers' => $log->total_pindah,
+                            'execution_time' => $log->waktu_eksekusi_ms,
+                            'preference' => $log->preference ?? 'distance',
+                            'timestamp' => $log->created_at->toDateTimeString(),
+                            'route_path' => $routePath,
+                            'koridors' => $koridors,
+                            'walking_info' => $walkingInfo,
+                            'is_from_log' => true
+                        ];
+                    }
                 }
             } catch (\Exception $e) {
-                // Log error jika ada
                 \Illuminate\Support\Facades\Log::error('Error loading log: ' . $e->getMessage());
             }
         }
@@ -109,6 +157,10 @@ class AlgoritmaController extends Controller
      */
     public function storeRouteCalculation(Request $request)
     {
+        // LOG UNTUK DEBUG
+        \Illuminate\Support\Facades\Log::info('=== STORE RUTE CALLED ===');
+        \Illuminate\Support\Facades\Log::info('walking_info received:', $request->input('walking_info', []));
+
         $validated = $request->validate([
             'start_stop' => 'required|string',
             'end_stop' => 'required|string',
@@ -117,9 +169,13 @@ class AlgoritmaController extends Controller
             'total_transfers' => 'required|integer',
             'execution_time' => 'required|numeric',
             'route_path' => 'required|array',
-            'koridors' => 'required|array'
+            'koridors' => 'required|array',
+            'walking_info' => 'nullable|array'
         ]);
 
+        \Illuminate\Support\Facades\Log::info('walking_info after validation:', $validated['walking_info'] ?? []);
+
+        // Simpan walking info juga ke session
         Session::put('last_route_calculation', $validated);
 
         return response()->json([

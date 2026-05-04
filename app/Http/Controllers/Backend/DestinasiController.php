@@ -35,7 +35,7 @@ class DestinasiController extends Controller
         $request->validate([
             'nama' => 'required|string',
             'kategori' => 'required|string',
-            // ❗ bebas file apa aja → biar gak error
+            // bebas file tipe apa apapun supaya mencegah error
             'gambar' => 'nullable|file|max:2048'
         ]);
 
@@ -48,14 +48,14 @@ class DestinasiController extends Controller
             if ($file->isValid()) {
                 $ext = strtolower($file->getClientOriginalExtension());
 
-                // ❗ HANYA TERIMA JPG/PNG
+                // HANYA TERIMA JPG/PNG
                 if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
 
                     $namaFile = time() . '_' . $file->getClientOriginalName();
                     $file->move(public_path('upload/destinasi'), $namaFile);
                 }
 
-                // ❗ selain itu (webp dll) → DIABAIKAN TANPA ERROR
+                // file tipe selain itu (webp dll) akan DIABAIKAN TANPA ERROR
             }
         }
 
@@ -96,7 +96,7 @@ class DestinasiController extends Controller
         $request->validate([
             'nama' => 'required|string',
             'kategori' => 'required|string',
-            // ❗ tidak wajib & bebas file
+            // tidak wajib & bebas file
             'gambar' => 'nullable|file|max:2048'
         ]);
 
@@ -109,7 +109,7 @@ class DestinasiController extends Controller
             if ($file->isValid()) {
                 $ext = strtolower($file->getClientOriginalExtension());
 
-                // ❗ hanya jpg/png
+                // hanya jpg/png
                 if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
 
                     $namaFile = time() . '_' . $file->getClientOriginalName();
@@ -121,7 +121,7 @@ class DestinasiController extends Controller
                     }
                 }
 
-                // ❗ webp dll → DIABAIKAN
+                // webp dll → DIABAIKAN
             }
         }
 

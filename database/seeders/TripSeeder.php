@@ -11,13 +11,13 @@ class TripSeeder extends Seeder
     public function run()
     {
         if ($this->command) {
-            $this->command->info('🚀 Import TripSeeder dimulai...');
+            $this->command->info('Import TripSeeder');
         }
 
         $path = public_path('gtfs/transjakarta/trips.txt');
         if (!file_exists($path)) {
             if ($this->command) {
-                $this->command->error('❌ File trips.txt tidak ditemukan!');
+                $this->command->error('File trips.txt tidak ditemukan');
             }
             return;
         }
@@ -57,7 +57,7 @@ class TripSeeder extends Seeder
         $total = DB::table('tb_trips')->count();
         if ($this->command) {
             $this->command->newLine();
-            $this->command->info("✅ TripSeeder selesai! Total: $total trips");
+            $this->command->info("TripSeeder selesai, Total $total trips");
         }
     }
 }

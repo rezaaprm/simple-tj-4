@@ -3,14 +3,29 @@
 @section('content')
 <div class="row mt-4">
     <div class="col-sm-12 mt-4">
-        <div class="callout callout-warning d-flex justify-content-between align-items-center">
-            <span class="text-dark">
-                <i class="fa-solid fa-road mr-2"></i>
-                Data Koridor TransJakarta ({{ $koridors->count() }} koridor)
-            </span>
+        <div class="callout callout-warning d-flex justify-content-between align-items-center flex-wrap">
             <div>
-                <button type="button" class="btn btn-sm btn-info mr-1" id="btnToggleAll">
-                    <i class="fas fa-eye"></i> Toggle Semua Koridor
+                <span class="text-dark">
+                    <i class="fa-solid fa-road mr-2"></i>
+                    Data Koridor TransJakarta
+                    ({{ $koridors->count() }} rute layanan
+                    @php
+                    $routesCollection = collect($routes);
+                    $koridorUtama = $routesCollection->filter(function($route) {
+                    $shortName = $route['short_name'];
+                    return is_numeric($shortName) && $shortName >= 1 && $shortName <= 14;
+                        });
+                        @endphp
+                        <strong class="text-primary">| {{ $koridorUtama->count() }} koridor utama</strong>)
+                </span>
+                <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">
+                    <i class="fas fa-info-circle"></i>
+                    Koridor utama (1-14) + rute integrasi (JAK, S, Royaltrans, dll)
+                </small>
+            </div>
+            <div class="mt-2 mt-sm-0">
+                <button type="button" class="btn btn-sm btn-info mr-1" id="btnShowAll">
+                    <i class="fas fa-eye"></i> Tampilkan Semua Koridor
                 </button>
                 <button type="button" class="btn btn-sm btn-secondary" id="btnHideAll">
                     <i class="fas fa-eye-slash"></i> Sembunyikan Semua
@@ -25,7 +40,7 @@
         <div class="card card-warning card-outline">
             <div class="card-header">
                 <span>Daftar Koridor</span>
-                <input type="text" class="form-control form-control-sm mt-2" id="koridorSearch" placeholder="Filter koridor atau halte...">
+                <input type="text" class="form-control form-control-sm mt-2" id="koridorSearch" placeholder="Filter koridor atau halte">
             </div>
             <div class="card-body p-2" style="max-height: 500px; overflow-y: auto;">
                 <div id="koridor-list">
@@ -77,21 +92,21 @@
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
 <script>
-    // ==================== INISIALISASI PETA ====================
+    // ==================== Inisialisasi Peta ====================
     const map = L.map('koridor-map').setView([-6.2088, 106.8456], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: ''
     }).addTo(map);
 
-    // ==================== DATA DARI CONTROLLER ====================
+    // ==================== Data dari Controller ====================
     const routes = @json($routes);
     console.log('Routes loaded:', routes.length);
 
-    // ==================== VARIABEL GLOBAL ====================
+    // ==================== Variabel Global ====================
     const routeLayers = {};
     let activeRoutes = new Set();
 
-    // ==================== FUNGSI GAMBAR SEMUA RUTE ====================
+    // ==================== Fungsi Gambar Semua Rute ====================
     function drawAllRoutes() {
         routes.forEach(route => {
             if (route.shape && route.shape.length > 0 && !routeLayers[route.id]) {
@@ -107,7 +122,7 @@
         updateActiveCount();
     }
 
-    // ==================== FUNGSI TOGGLE RUTE (SINGLE) ====================
+    // ==================== Fungsi Toggle Rute (single) ====================
     function toggleRoute(routeId) {
         if (activeRoutes.has(routeId)) {
             if (routeLayers[routeId]) {
@@ -129,92 +144,72 @@
         updateActiveCount();
     }
 
-    // ==================== FUNGSI TOGGLE SEMUA ====================
-    function toggleAllRoutes() {
-        console.log('Toggle semua dipanggil, activeRoutes size:', activeRoutes.size);
+    // ==================== Hidupkan semua koridor (tanpa zoom) ====================
+    function showAllRoutes() {
+        console.log('Menghidupkan semua koridor');
 
-        if (activeRoutes.size > 0) {
-            // ========== MATIKAN SEMUA ==========
-            console.log('Memati kan semua koridor...');
+        routes.forEach(route => {
+            if (!route.shape || route.shape.length === 0) return;
 
-            // Hapus semua layer dari map
-            Object.keys(routeLayers).forEach(id => {
-                if (routeLayers[id] && map.hasLayer(routeLayers[id])) {
-                    map.removeLayer(routeLayers[id]);
-                }
-            });
-
-            // Kosongkan Set
-            activeRoutes.clear();
-
-            // Hapus class active dan tutup semua dropdown
-            document.querySelectorAll('.koridor-dropdown').forEach(d => {
-                d.classList.remove('active');
-                const header = d.querySelector('.koridor-header');
-                const body = d.querySelector('.koridor-body');
-                if (header) {
-                    header.classList.remove('open');
-                    // Reset arrow rotation
-                    const arrow = header.querySelector('.arrow');
-                    if (arrow) arrow.style.transform = '';
-                }
-                if (body) body.classList.remove('open');
-            });
-
-            // Reset title
-            document.getElementById('selectedTitle').innerHTML = '📍 Koridor Terpilih';
-
-            console.log('Semua koridor dimatikan');
-        } else {
-            // ========== HIDUPKAN SEMUA ==========
-            console.log('Menghidupkan semua koridor...');
-
-            // Hidupkan semua koridor dan buka dropdownnya
-            routes.forEach(route => {
-                if (!route.shape || route.shape.length === 0) return;
-
-                // Cek apakah layer sudah ada
-                if (!routeLayers[route.id]) {
-                    const polyline = L.polyline(route.shape, {
-                        color: route.color,
-                        weight: 3,
-                        opacity: 0.7
-                    }).addTo(map);
-                    routeLayers[route.id] = polyline;
-                } else if (!map.hasLayer(routeLayers[route.id])) {
-                    routeLayers[route.id].addTo(map);
-                }
-                activeRoutes.add(route.id);
-
-                // Buka dropdown dan tambah class active
-                const dropdown = document.querySelector(`.koridor-dropdown[data-route-id="${route.id}"]`);
-                if (dropdown) {
-                    dropdown.classList.add('active');
-                    const header = dropdown.querySelector('.koridor-header');
-                    const body = dropdown.querySelector('.koridor-body');
-                    if (header) header.classList.add('open');
-                    if (body) body.classList.add('open');
-                }
-            });
-
-            // Zoom ke semua koridor
-            const layers = Object.values(routeLayers).filter(l => l && map.hasLayer(l));
-            if (layers.length > 0) {
-                const group = L.featureGroup(layers);
-                map.fitBounds(group.getBounds().pad(0.1));
+            if (!routeLayers[route.id]) {
+                const polyline = L.polyline(route.shape, {
+                    color: route.color,
+                    weight: 3,
+                    opacity: 0.7
+                }).addTo(map);
+                routeLayers[route.id] = polyline;
+            } else if (!map.hasLayer(routeLayers[route.id])) {
+                routeLayers[route.id].addTo(map);
             }
+            activeRoutes.add(route.id);
 
-            // Update title dengan info jumlah
-            document.getElementById('selectedTitle').innerHTML = `📍 Semua Koridor (${activeRoutes.size} aktif)`;
+            const dropdown = document.querySelector(`.koridor-dropdown[data-route-id="${route.id}"]`);
+            if (dropdown) {
+                dropdown.classList.add('active');
+                const header = dropdown.querySelector('.koridor-header');
+                const body = dropdown.querySelector('.koridor-body');
+                if (header) header.classList.add('open');
+                if (body) body.classList.add('open');
+            }
+        });
 
-            console.log(`Semua koridor dihidupkan, total: ${activeRoutes.size}`);
-        }
+        // Hapus zoom
         updateActiveCount();
+        console.log(`Semua koridor dihidupkan, total: ${activeRoutes.size}`);
     }
 
-    // ==================== FUNGSI SEMBUNYIKAN SEMUA ====================
+    // ==================== Matikan semua koridor ====================
     function hideAllRoutes() {
-        console.log('Sembunyikan semua koridor...');
+        console.log('Mematikan semua koridor');
+
+        Object.keys(routeLayers).forEach(id => {
+            if (routeLayers[id] && map.hasLayer(routeLayers[id])) {
+                map.removeLayer(routeLayers[id]);
+            }
+        });
+
+        activeRoutes.clear();
+
+        document.querySelectorAll('.koridor-dropdown').forEach(d => {
+            d.classList.remove('active');
+            const header = d.querySelector('.koridor-header');
+            const body = d.querySelector('.koridor-body');
+            if (header) {
+                header.classList.remove('open');
+                const arrow = header.querySelector('.arrow');
+                if (arrow) arrow.style.transform = '';
+            }
+            if (body) body.classList.remove('open');
+        });
+
+        document.getElementById('selectedTitle').innerHTML = '📍 Koridor Terpilih';
+        updateActiveCount();
+        console.log('Semua koridor dimatikan');
+    }
+
+    // ==================== Fungsi Sembunyikan Semua ====================
+    function hideAllRoutes() {
+        console.log('Sembunyikan semua koridor');
 
         // Hapus semua layer dari map
         Object.keys(routeLayers).forEach(id => {
@@ -246,7 +241,7 @@
         console.log('Semua koridor disembunyikan');
     }
 
-    // ==================== FUNGSI DROPDOWN KORIDOR ====================
+    // ==================== Fungsi Dropdown Koridor ====================
     function toggleDropdown(header) {
         const dropdown = header.closest('.koridor-dropdown');
         if (!dropdown) return;
@@ -264,7 +259,7 @@
         }
     }
 
-    // ==================== FUNGSI FOCUS HALTE ====================
+    // ==================== Fungsi Fokus Halte ====================
     function focusHalte(lat, lng, nama) {
         map.setView([lat, lng], 17);
         L.popup().setLatLng([lat, lng]).setContent(`<b>${nama}</b>`).openOn(map);
@@ -294,7 +289,7 @@
         }
     }
 
-    // ==================== FILTER KORIDOR ====================
+    // ==================== Filter Koridor ====================
     function setupKoridorFilter() {
         const searchInput = document.getElementById('koridorSearch');
         if (!searchInput) return;
@@ -374,11 +369,11 @@
         filterKoridor();
     }
 
-    // ==================== EVENT LISTENER ====================
-    document.getElementById('btnToggleAll').addEventListener('click', toggleAllRoutes);
+    // ==================== Event listener ====================
+    document.getElementById('btnShowAll').addEventListener('click', showAllRoutes);
     document.getElementById('btnHideAll').addEventListener('click', hideAllRoutes);
 
-    // ==================== INIT ====================
+    // ==================== Init ====================
     drawAllRoutes();
     setupKoridorFilter();
     setTimeout(() => map.invalidateSize(), 200);

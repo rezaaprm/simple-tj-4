@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="row">
-    <!-- BARIS 1: TIGA CARD DALAM SATU BARIS -->
+    <!-- Baris 1: Tiga card dalam satu baris -->
     <div class="col-12">
         <div class="row mt-2">
             <!-- Card 1: Pseudocode -->
@@ -45,7 +45,8 @@ function Dijkstra(graph, source, target)
                 distances[neighbor] = alt
                 previous[neighbor] = current
 
-    return reconstructPath(previous, target)</pre>
+    return reconstructPath(previous, target)
+                        </pre>
                         <div class="mt-2">
                             <small class="text-muted">
                                 <i class="fas fa-info-circle"></i> Dijkstra mencari jalur terpendek dengan
@@ -105,7 +106,8 @@ function Dijkstra(graph, source, target)
                         <pre class="bg-dark text-light p-3 rounded" style="font-size: 0.75rem;">
 a = sin²(Δφ/2) + cos φ1 * cos φ2 * sin²(Δλ/2)
 c = 2 * atan2(√a, √(1−a))
-d = R * c</pre>
+d = R * c
+                        </pre>
                         <p><small>R = 6371000 meter (radius bumi)</small></p>
                     </div>
                 </div>
@@ -131,32 +133,32 @@ d = R * c</pre>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>⏱️ Penalti Pindah Koridor</td>
+                                    <td>Penalti Pindah Koridor</td>
                                     <td class="text-center"><span class="badge badge-warning">{{ number_format($params['transfer_penalty']) }} m</span></td>
                                     <td><small>Pinalti setiap ganti koridor</small></td>
                                 </tr>
                                 <tr>
-                                    <td>🚶 Maksimal Jalan Kaki</td>
+                                    <td>Maksimal Jalan Kaki</td>
                                     <td class="text-center"><span class="badge badge-success">{{ $params['max_walking'] }} m</span></td>
                                     <td><small>Jarak maksimal jalan kaki antar halte</small></td>
                                 </tr>
                                 <tr>
-                                    <td>🚌 Bobot Naik Bus</td>
+                                    <td>Bobot Naik Bus</td>
                                     <td class="text-center"><span class="badge badge-info">{{ number_format($params['bus_weight']) }} m</span></td>
                                     <td><small>Tambahan bobot untuk preferensi bus</small></td>
                                 </tr>
                                 <tr>
-                                    <td>📏 Ambang Bus Jauh</td>
+                                    <td>Ambang Bus Jauh</td>
                                     <td class="text-center"><span class="badge badge-secondary">{{ number_format($params['long_bus_threshold']) }} m</span></td>
                                     <td><small>Jarak dianggap bus jarak jauh</small></td>
                                 </tr>
                                 <tr>
-                                    <td>⚠️ Pinalti Bus Jauh</td>
+                                    <td>Pinalti Bus Jauh</td>
                                     <td class="text-center"><span class="badge badge-danger">{{ number_format($params['long_bus_penalty']) }} m</span></td>
                                     <td><small>Pinalti untuk bus jarak jauh</small></td>
                                 </tr>
                                 <tr>
-                                    <td>🚶 Multiplier Jalan Kaki</td>
+                                    <td>Multiplier Jalan Kaki</td>
                                     <td class="text-center">
                                         <span class="badge badge-secondary">&lt;100m: {{ $params['walk_multiplier_short'] }}x</span><br>
                                         <span class="badge badge-secondary">≥100m: {{ $params['walk_multiplier_long'] }}x</span>
@@ -168,14 +170,14 @@ d = R * c</pre>
 
                         <hr>
 
-                        <h6>⚡ Kecepatan Estimasi</h6>
+                        <h6>Kecepatan Estimasi</h6>
                         <ul class="list-group list-group-flush small">
                             <li class="list-group-item d-flex justify-content-between">
-                                <span>🚌 Kecepatan Bus</span>
+                                <span>Kecepatan Bus</span>
                                 <span class="badge badge-info">{{ $params['bus_speed'] }} km/jam</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between">
-                                <span>🚶 Kecepatan Jalan Kaki</span>
+                                <span>Kecepatan Jalan Kaki</span>
                                 <span class="badge badge-secondary">{{ $params['walk_speed'] }} km/jam</span>
                             </li>
                         </ul>
@@ -186,7 +188,7 @@ d = R * c</pre>
     </div>
 </div>
 
-<!-- BARIS 2: DETAIL PERHITUNGAN RUTE TERAKHIR -->
+<!-- Baris 2: Detail perhitungan rute terakhir -->
 <div class="row mt-4">
     <div class="col-12">
         <div class="card card-info card-outline">
@@ -224,36 +226,41 @@ d = R * c</pre>
                     <div class="col-md-5">
                         <div class="info-box bg-light">
                             <div class="info-box-content">
-                                <span class="info-box-text text-center"><strong>📍 Rute Perjalanan</strong></span>
+                                <span class="info-box-text text-center">
+                                    <strong>Rute Perjalanan</strong>
+                                    @if(isset($lastRoute['preference']))
+                                    <small class="text-muted">({{ $lastRoute['preference'] == 'distance' ? 'Cari 1 - Prioritas Jarak' : 'Cari 2 - Prioritas Transfer' }})</small>
+                                    @endif
+                                </span>
                                 <div class="text-center mt-2">
-                                    <span class="badge badge-success p-2">🟢 {{ $lastRoute['start_stop'] ?? '-' }}</span>
+                                    <span class="badge badge-success p-2">{{ $lastRoute['start_stop'] ?? '-' }}</span>
                                     <i class="fas fa-arrow-right mx-2"></i>
-                                    <span class="badge badge-danger p-2">🔴 {{ $lastRoute['end_stop'] ?? '-' }}</span>
+                                    <span class="badge badge-danger p-2">{{ $lastRoute['end_stop'] ?? '-' }}</span>
                                 </div>
                                 <hr>
                                 <div class="row">
                                     <div class="col-6">
-                                        <small>🚏 Halte Dilewati:</small>
+                                        <small>Halte Dilewati:</small>
                                         <h5 class="mb-0">{{ number_format($lastRoute['total_stops'] ?? 0) }}</h5>
                                     </div>
                                     <div class="col-6">
-                                        <small>🔄 Pindah Koridor:</small>
+                                        <small>Pindah Koridor:</small>
                                         <h5 class="mb-0">{{ number_format($lastRoute['total_transfers'] ?? 0) }}</h5>
                                     </div>
                                 </div>
                                 <div class="row mt-2">
                                     <div class="col-6">
-                                        <small>📏 Jarak Tempuh:</small>
+                                        <small>Jarak Tempuh:</small>
                                         <h5 class="mb-0">{{ number_format($totalDistanceKm, 2) }} km</h5>
                                     </div>
                                     <div class="col-6">
-                                        <small>⏱️ Estimasi Waktu:</small>
+                                        <small>Estimasi Waktu:</small>
                                         <h5 class="mb-0">{{ $totalMinutes }} menit</h5>
                                     </div>
                                 </div>
                                 <div class="row mt-2">
                                     <div class="col-12">
-                                        <small>⚡ Waktu Eksekusi Algoritma:</small>
+                                        <small>Waktu Eksekusi Algoritma:</small>
                                         <h5 class="mb-0">{{ number_format($lastRoute['execution_time'] ?? 0, 2) }} ms</h5>
                                     </div>
                                 </div>
@@ -306,6 +313,32 @@ d = R * c</pre>
                         </div>
                     </div>
                 </div>
+
+                <!-- Informasi Jalan Kaki (POI) -->
+                <!-- Tanpa nested row -->
+                @if(isset($lastRoute['walking_info']))
+                <div class="col-12 mb-3">
+                    @if(isset($lastRoute['walking_info']['start']) && $lastRoute['walking_info']['start'])
+                    <div class="alert alert-warning p-2 mb-2" style="background: #fff3e0; border-left: 4px solid #e67e22;">
+                        <i class="fas fa-walking text-warning"></i>
+                        <strong>Jalan Kaki Awal:</strong>
+                        {{ $lastRoute['walking_info']['start']['from_poi'] ?? '-' }} →
+                        {{ $lastRoute['walking_info']['start']['to_stop'] ?? '-' }}
+                        ({{ $lastRoute['walking_info']['start']['distance_km'] ?? '0' }} km)
+                    </div>
+                    @endif
+
+                    @if(isset($lastRoute['walking_info']['end']) && $lastRoute['walking_info']['end'])
+                    <div class="alert alert-warning p-2" style="background: #fff3e0; border-left: 4px solid #e67e22;">
+                        <i class="fas fa-walking text-warning"></i>
+                        <strong>🚶 Jalan Kaki Tujuan:</strong>
+                        {{ $lastRoute['walking_info']['end']['from_stop'] ?? '-' }} →
+                        {{ $lastRoute['walking_info']['end']['to_poi'] ?? '-' }}
+                        ({{ $lastRoute['walking_info']['end']['distance_km'] ?? '0' }} km)
+                    </div>
+                    @endif
+                </div>
+                @endif
 
                 <!-- Penjelasan Perhitungan -->
                 <div class="alert alert-secondary mt-3">
@@ -367,6 +400,17 @@ d = R * c</pre>
 
 @push('scripts')
 <script>
+    // Helper function untuk escape HTML (TAMBAHKAN INI)
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     // Fungsi reset card 2 (Rute Terakhir)
     function resetLastRoute() {
         if (confirm('Reset tampilan rute terakhir?')) {
@@ -437,101 +481,136 @@ d = R * c</pre>
         const koridors = data.koridors || [];
         const routePath = data.route_path || [];
 
-        const html = `
-            <div class="row">
-                <div class="col-md-5">
-                    <div class="info-box bg-light">
-                        <div class="info-box-content">
-                            <span class="info-box-text text-center"><strong>📍 Rute Perjalanan</strong></span>
-                            <div class="text-center mt-2">
-                                <span class="badge badge-success p-2">🟢 ${data.start_stop || '-'}</span>
-                                <i class="fas fa-arrow-right mx-2"></i>
-                                <span class="badge badge-danger p-2">🔴 ${data.end_stop || '-'}</span>
-                            </div>
-                            <hr>
-                            <div class="row">
-                                <div class="col-6">
-                                    <small>🚏 Halte Dilewati:</small>
-                                    <h5 class="mb-0">${data.total_stops || 0}</h5>
-                                </div>
-                                <div class="col-6">
-                                    <small>🔄 Pindah Koridor:</small>
-                                    <h5 class="mb-0">${data.total_transfers || 0}</h5>
-                                </div>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-6">
-                                    <small>📏 Jarak Tempuh:</small>
-                                    <h5 class="mb-0">${totalDistanceKm.toFixed(2)} km</h5>
-                                </div>
-                                <div class="col-6">
-                                    <small>⏱️ Estimasi Waktu:</small>
-                                    <h5 class="mb-0">${totalMinutes} menit</h5>
-                                </div>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-12">
-                                    <small>⚡ Waktu Eksekusi Algoritma:</small>
-                                    <h5 class="mb-0">${(data.execution_time || 0).toFixed(2)} ms</h5>
-                                </div>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-12">
-                                    <small>📅 Tanggal Pencarian:</small>
-                                    <h5 class="mb-0">${data.timestamp || '-'}</h5>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        // ========== HTML ==========
+        let html = '';
+
+        // Info jalan kaki (POI) di awal
+        if (data.walking_info) {
+            if (data.walking_info.start) {
+                html += `
+                <div class="alert alert-warning p-2 mb-2" style="background: #fff3e0; border-left: 4px solid #e67e22;">
+                    <i class="fas fa-walking text-warning"></i>
+                    <strong>🚶 Jalan Kaki Awal:</strong>
+                    ${escapeHtml(data.walking_info.start.from_poi)} →
+                    ${escapeHtml(data.walking_info.start.to_stop)}
+                    (${data.walking_info.start.distance_km} km)
                 </div>
-                
-                <div class="col-md-4">
-                    <div class="card card-outline card-warning">
-                        <div class="card-header py-2">
-                            <h6 class="card-title"><i class="fas fa-bus"></i> Koridor Dilewati</h6>
-                        </div>
-                        <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
-                            ${koridors.length > 0 ? koridors.map((koridor, idx) => `
-                                <div class="d-flex align-items-center mb-2 p-2 bg-light rounded">
-                                    <span class="badge badge-primary mr-2">${idx + 1}</span>
-                                    <span class="font-weight-bold">Koridor ${koridor.short_name || koridor}</span>
-                                    <div class="ml-auto" style="width: 20px; height: 20px; background: ${koridor.color || '#ccc'}; border-radius: 4px;"></div>
-                                </div>
-                            `).join('') : '<p class="text-muted text-center">Tidak ada data koridor</p>'}
-                        </div>
-                    </div>
+            `;
+            }
+
+            if (data.walking_info.end) {
+                html += `
+                <div class="alert alert-warning p-2 mb-3" style="background: #fff3e0; border-left: 4px solid #e67e22;">
+                    <i class="fas fa-walking text-warning"></i>
+                    <strong>🚶 Jalan Kaki Tujuan:</strong>
+                    ${escapeHtml(data.walking_info.end.from_stop)} →
+                    ${escapeHtml(data.walking_info.end.to_poi)}
+                    (${data.walking_info.end.distance_km} km)
                 </div>
-                
-                <div class="col-md-3">
-                    <div class="card card-outline card-success">
-                        <div class="card-header py-2">
-                            <h6 class="card-title"><i class="fas fa-map-pin"></i> Jalur Halte</h6>
+            `;
+            }
+        }
+
+        // Row yang ada yaitu kiri, tengah, dan kanan
+        html += `
+        <div class="row">
+            <!-- Kolom Kiri: Info Rute -->
+            <div class="col-md-5">
+                <div class="info-box bg-light">
+                    <div class="info-box-content">
+                        <span class="info-box-text text-center"><strong>Rute Perjalanan</strong></span>
+                        <div class="text-center mt-2">
+                            <span class="badge badge-success p-2">${escapeHtml(data.start_stop || '-')}</span>
+                            <i class="fas fa-arrow-right mx-2"></i>
+                            <span class="badge badge-danger p-2">${escapeHtml(data.end_stop || '-')}</span>
                         </div>
-                        <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
-                            ${routePath.length > 0 ? routePath.map((stop, idx) => `
-                                <div class="d-flex align-items-center mb-1 small">
-                                    <span class="badge badge-secondary mr-2">${stop.order || idx + 1}</span>
-                                    <span class="text-truncate">${stop.name || stop}</span>
-                                </div>
-                            `).join('') : '<p class="text-muted text-center">Tidak ada data halte</p>'}
+                        <hr>
+                        <div class="row">
+                            <div class="col-6">
+                                <small>Halte Dilewati:</small>
+                                <h5 class="mb-0">${data.total_stops || 0}</h5>
+                            </div>
+                            <div class="col-6">
+                                <small>Pindah Koridor:</small>
+                                <h5 class="mb-0">${data.total_transfers || 0}</h5>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <small>Jarak Tempuh:</small>
+                                <h5 class="mb-0">${totalDistanceKm.toFixed(2)} km</h5>
+                            </div>
+                            <div class="col-6">
+                                <small>Estimasi Waktu:</small>
+                                <h5 class="mb-0">${totalMinutes} menit</h5>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <small>Waktu Eksekusi Algoritma:</small>
+                                <h5 class="mb-0">${(data.execution_time || 0).toFixed(2)} ms</h5>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <small>Tanggal Pencarian:</small>
+                                <h5 class="mb-0">${data.timestamp || '-'}</h5>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="alert alert-secondary mt-3">
-                <h6><i class="fas fa-calculator"></i> Penjelasan Perhitungan Dijkstra:</h6>
-                <small>
-                    <ul class="mb-0">
-                        <li><strong>Bobot perjalanan</strong> = Jarak antar halte (meter) + Bobot tambahan</li>
-                        <li><strong>Pindah koridor</strong> = +2500 meter (pinalti)</li>
-                        <li><strong>Naik bus</strong> = +800 meter (preferensi)</li>
-                        <li><strong>Jalan kaki</strong> = Jarak × 5x (jarak pendek) atau 50x (jarak jauh)</li>
-                        <li><strong>Estimasi waktu</strong> = (Jarak total / kecepatan bus) + (pindah koridor × 5 menit)</li>
-                    </ul>
-                </small>
+            <!-- Kolom Tengah: Koridor Dilewati -->
+            <div class="col-md-4">
+                <div class="card card-outline card-warning">
+                    <div class="card-header py-2">
+                        <h6 class="card-title"><i class="fas fa-bus"></i> Koridor Dilewati</h6>
+                    </div>
+                    <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
+                        ${koridors.length > 0 ? koridors.map((koridor, idx) => `
+                            <div class="d-flex align-items-center mb-2 p-2 bg-light rounded">
+                                <span class="badge badge-primary mr-2">${idx + 1}</span>
+                                <span class="font-weight-bold">Koridor ${escapeHtml(koridor.short_name || koridor)}</span>
+                                <div class="ml-auto" style="width: 20px; height: 20px; background: ${koridor.color || '#ccc'}; border-radius: 4px;"></div>
+                            </div>
+                        `).join('') : '<p class="text-muted text-center">Tidak ada data koridor</p>'}
+                    </div>
+                </div>
             </div>
-        `;
+            
+            <!-- Kolom Kanan: Jalur Halte -->
+            <div class="col-md-3">
+                <div class="card card-outline card-success">
+                    <div class="card-header py-2">
+                        <h6 class="card-title"><i class="fas fa-map-pin"></i> Jalur Halte</h6>
+                    </div>
+                    <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
+                        ${routePath.length > 0 ? routePath.map((stop, idx) => `
+                            <div class="d-flex align-items-center mb-1 small">
+                                <span class="badge badge-secondary mr-2">${stop.order || idx + 1}</span>
+                                <span class="text-truncate">${escapeHtml(stop.name || stop)}</span>
+                            </div>
+                        `).join('') : '<p class="text-muted text-center">Tidak ada data halte</p>'}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Penjelasan Perhitungan -->
+        <div class="alert alert-secondary mt-3">
+            <h6><i class="fas fa-calculator"></i> Penjelasan Perhitungan Dijkstra:</h6>
+            <small>
+                <ul class="mb-0">
+                    <li><strong>Bobot perjalanan</strong> = Jarak antar halte (meter) + Bobot tambahan</li>
+                    <li><strong>Pindah koridor</strong> = +2500 meter (pinalti)</li>
+                    <li><strong>Naik bus</strong> = +800 meter (preferensi)</li>
+                    <li><strong>Jalan kaki</strong> = Jarak × 5x (jarak pendek) atau 50x (jarak jauh)</li>
+                    <li><strong>Estimasi waktu</strong> = (Jarak total / kecepatan bus) + (pindah koridor × 5 menit)</li>
+                </ul>
+            </small>
+        </div>
+    `;
 
         document.getElementById('logRouteContent').innerHTML = html;
         document.getElementById('logSelectedId').innerHTML = `Log ID #${data.id}`;

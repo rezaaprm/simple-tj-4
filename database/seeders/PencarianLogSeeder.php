@@ -10,13 +10,13 @@ class PencarianLogSeeder extends Seeder
     public function run()
     {
         if ($this->command) {
-            $this->command->info('🚀 Import PencarianLogSeeder dimulai...');
+            $this->command->info('Import PencarianLogSeeder');
         }
 
-        // HAPUS CEK TRUNCATE - langsung insert jika kosong
+        // langsung insert kalau kosong, tanpa truncate
         if (DB::table('tb_pencarian_log')->count() > 0) {
             if ($this->command) {
-                $this->command->warn('⚠️ Tabel tb_pencarian_log sudah berisi. Seeder dilewati.');
+                $this->command->warn('Tabel tb_pencarian_log sudah berisi, Seeder dilewati');
             }
             return;
         }
@@ -25,7 +25,7 @@ class PencarianLogSeeder extends Seeder
 
         if (empty($stops)) {
             if ($this->command) {
-                $this->command->warn('⚠️ Tidak ada data stops, lewati...');
+                $this->command->warn('Tidak ada data stops, lewati');
             }
             return;
         }
@@ -73,7 +73,7 @@ class PencarianLogSeeder extends Seeder
         $total = DB::table('tb_pencarian_log')->count();
         if ($this->command) {
             $this->command->newLine();
-            $this->command->info("✅ PencarianLogSeeder selesai! Total: $total logs (dummy data)");
+            $this->command->info("PencarianLogSeeder selesai! Total: $total logs (dummy data)");
         }
     }
 }

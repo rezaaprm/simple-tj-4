@@ -11,19 +11,17 @@ class StopSeeder extends Seeder
     public function run()
     {
         if ($this->command) {
-            $this->command->info('🚀 Import StopSeeder dimulai...');
+            $this->command->info('Import StopSeeder');
         }
 
         $path = public_path('gtfs/transjakarta/stops.txt');
         if (!file_exists($path)) {
             if ($this->command) {
-                $this->command->error('❌ File stops.txt tidak ditemukan!');
+                $this->command->error('File stops.txt tidak ditemukan');
             }
             return;
         }
 
-        // HAPUS BARIS INI! JANGAN TRUNCATE!
-        // DB::table('tb_stops')->truncate();
 
         $csv = Reader::createFromPath($path, 'r');
         $csv->setHeaderOffset(0);
@@ -55,7 +53,7 @@ class StopSeeder extends Seeder
         $total = DB::table('tb_stops')->count();
         if ($this->command) {
             $this->command->newLine();
-            $this->command->info("✅ StopSeeder selesai! Total: $total stops");
+            $this->command->info("StopSeeder selesai, Total $total stops");
         }
     }
 }

@@ -5,6 +5,6 @@
 </ul>
 <ul class="navbar-nav ml-auto">
     <li class="nav-item d-none d-sm-inline-block">
-        <a href="#" class="nav-link text-dark">Sistem Transportasi Jakarta</a>
+        <a href="#" class="nav-link text-dark">Sistem Transportasi Transjakarta</a>
     </li>
 </ul>

@@ -6,7 +6,7 @@
 <div class="row">
     <div class="col-12">
         <div class="row mt-2">
-            <!-- CARD KIRI: Cari Rute & Detail Rute -->
+            <!-- Card Kiri: Cari Rute & Detail Rute -->
             <div class="col-md-4">
                 <div class="card card-primary card-outline">
                     <div class="card-header">
@@ -379,11 +379,11 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
-    // ==================== DATA DARI CONTROLLER ====================
+    // ==================== Data dari Controller ====================
     const routes = @json($routes);
     console.log('Routes loaded:', routes.length);
 
-    // ==================== INISIALISASI PETA ====================
+    // ==================== Inisialisasi Peta ====================
     const jakartaBounds = L.latLngBounds(L.latLng(-6.4, 106.6), L.latLng(-6.0, 107.0));
     const map = L.map('map', {
         center: [-6.2088, 106.8456],
@@ -398,7 +398,7 @@
         attribution: ''
     }).addTo(map);
 
-    // ==================== VARIABEL GLOBAL ====================
+    // ==================== Variabel Global ====================
     const routeLayers = {};
     let activeRoutes = new Set();
     let stopMarkers = {};
@@ -407,6 +407,8 @@
     let selectedEndStop = null;
     let routeLayers_temp = {};
     let currentRouteMarkers = [];
+    let selectingPoi = false;
+
 
     const allStopsWithRoutes = [];
     routes.forEach(route => {
@@ -438,7 +440,18 @@
         return R * c;
     }
 
-    // ==================== FUNGSI GAMBAR SEMUA RUTE ====================
+    // Fungsi Helper untuk escape HTML
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // ==================== Fungsi Gambar Semua Rute ====================
     function drawAllRoutes() {
         routes.forEach(route => {
             if (route.shape && route.shape.length > 0 && !routeLayers[route.id]) {
@@ -461,7 +474,7 @@
         updateActiveRoutesCount();
     }
 
-    // ==================== FUNGSI HALTE ====================
+    // ==================== Fungsi Halte ====================
     function drawAllStops() {
         if (stopsVisible) return;
         const allStops = new Map();
@@ -494,7 +507,7 @@
     };
     window.removeAllStops = removeAllStops;
 
-    // ==================== TOGGLE RUTE ====================
+    // ==================== Toggle Rute ====================
     function toggleRoute(routeId) {
         if (activeRoutes.has(routeId)) {
             if (routeLayers[routeId]) {
@@ -523,7 +536,7 @@
     }
     window.toggleRoute = toggleRoute;
 
-    // ==================== TOGGLE SEMUA KORIDOR ====================
+    // ==================== Toggle Semua Koridor ====================
     window.toggleAllRoutes = function() {
         const allDropdowns = document.querySelectorAll('.koridor-dropdown');
 
@@ -612,7 +625,7 @@
         }
     }
 
-    // ==================== DROPDOWN KORIDOR ====================
+    // ==================== Dropdown Koridor ====================
     window.toggleDropdown = function(header) {
         const dropdown = header.closest('.koridor-dropdown');
         if (!dropdown) return;
@@ -627,36 +640,143 @@
         if (body) body.classList.toggle('open');
     };
 
-    // ==================== SEARCH ====================
+    // ==================== Fungsi Search (dengan POI) ====================
     function setupSearch() {
-        const startInput = document.getElementById('startSearch'),
-            endInput = document.getElementById('endSearch');
-        const startResults = document.getElementById('startResults'),
-            endResults = document.getElementById('endResults');
+        console.log('--- Setup Search dengan POI ---');
 
-        function filterStops(query) {
+        const startInput = document.getElementById('startSearch');
+        const endInput = document.getElementById('endSearch');
+        const startResults = document.getElementById('startResults');
+        const endResults = document.getElementById('endResults');
+
+        // Fungsi Filter Halte dan POI
+        async function filterAllPlaces(query) {
             if (!query || query.length < 2) return [];
+
             const q = query.toLowerCase();
-            return allStopsWithRoutes.filter(stop => stop.searchText.includes(q)).slice(0, 10);
+
+            // 1. Cari dari halte
+            const stopResults = allStopsWithRoutes
+                .filter(stop => stop.searchText.includes(q))
+                .slice(0, 8) // Batasi 8 hasil halte
+                .map(stop => ({
+                    type: 'stop',
+                    data: stop
+                }));
+
+            // 2. Cari dari POI via API dengan timeout
+            let poiResults = [];
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+                const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const poiData = await response.json();
+                poiResults = poiData
+                    .slice(0, 5) // Batasi 5 POI
+                    .map(poi => ({
+                        type: 'poi',
+                        data: poi
+                    }));
+            } catch (e) {
+                console.log('POI search error atau timeout:', e);
+            }
+
+            return [...stopResults, ...poiResults];
         }
 
-        function renderResults(results, target, isStart) {
-            if (results.length === 0) {
-                target.innerHTML = '<div class="list-group-item">Tidak ditemukan</div>';
-                target.style.display = 'block';
+        // Fungsi Render Sutocomplete
+        async function renderAutocomplete(input, resultsDiv, isStart) {
+            // Cek Flag jika sedang select POI
+            if (selectingPoi) {
+                resultsDiv.style.display = 'none';
                 return;
             }
-            target.innerHTML = results.map(stop => `<div class="list-group-item list-group-item-action autocomplete-item" onclick='selectStop(${JSON.stringify(stop).replace(/'/g,"\\'")}, ${isStart})'><div><strong>${stop.name}</strong><br><small>${stop.routeName}</small></div></div>`).join('');
-            target.style.display = 'block';
+
+            let query = input.value;
+            if (query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            // Bersihkan query dari teks "→ Naik di"
+            const arrowIndex = query.indexOf('→');
+            if (arrowIndex > -1) {
+                query = query.substring(0, arrowIndex).trim();
+            }
+
+            if (query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            const items = await filterAllPlaces(query);
+
+            if (items.length === 0) {
+                resultsDiv.innerHTML = '<div class="list-group-item">Tidak ditemukan</div>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+
+            resultsDiv.innerHTML = items.map(item => {
+                if (item.type === 'stop') {
+                    const stop = item.data;
+                    return `
+                    <div class="list-group-item list-group-item-action autocomplete-item" onclick='selectStopRoute(${JSON.stringify(stop).replace(/'/g, "\\'")}, ${isStart})'>
+                        <div>
+                            <strong>${escapeHtml(stop.name)}</strong>
+                            <br><small>${escapeHtml(stop.routeName)}</small>
+                        </div>
+                    </div>
+                `;
+                } else {
+                    const poi = item.data;
+                    return `
+                    <div class="list-group-item list-group-item-action autocomplete-item" onclick='selectPoi(${JSON.stringify(poi).replace(/'/g, "\\'")}, ${isStart})'>
+                        <div>
+                            <strong>📍 ${escapeHtml(poi.name)}</strong>
+                            <br><small>${escapeHtml(poi.category)}</small>
+                        </div>
+                    </div>
+                `;
+                }
+            }).join('');
+            resultsDiv.style.display = 'block';
         }
-        startInput.addEventListener('input', e => renderResults(filterStops(e.target.value), startResults, true));
-        endInput.addEventListener('input', e => renderResults(filterStops(e.target.value), endResults, false));
-        document.addEventListener('click', e => {
-            if (!startInput.contains(e.target) && !startResults.contains(e.target)) startResults.style.display = 'none';
-            if (!endInput.contains(e.target) && !endResults.contains(e.target)) endResults.style.display = 'none';
+
+        // Event Listeners dengan debounce
+        let startTimer, endTimer;
+
+        startInput.addEventListener('input', () => {
+            clearTimeout(startTimer);
+            startTimer = setTimeout(() => {
+                renderAutocomplete(startInput, startResults, true);
+            }, 300);
+        });
+
+        endInput.addEventListener('input', () => {
+            clearTimeout(endTimer);
+            endTimer = setTimeout(() => {
+                renderAutocomplete(endInput, endResults, false);
+            }, 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!startInput.contains(e.target) && !startResults.contains(e.target)) {
+                startResults.style.display = 'none';
+            }
+            if (!endInput.contains(e.target) && !endResults.contains(e.target)) {
+                endResults.style.display = 'none';
+            }
         });
     }
-    window.selectStop = function(stop, isStart) {
+
+    // Fungsi untuk memilih halte: selectStopRoute
+    window.selectStopRoute = function(stop, isStart) {
         if (isStart) {
             selectedStartStop = stop;
             document.getElementById('startSearch').value = stop.name;
@@ -667,37 +787,198 @@
             document.getElementById('endResults').style.display = 'none';
         }
         updateSelectedStopsInfo();
-    };
+    }
 
-    function updateSelectedStopsInfo() {
-        const infoDiv = document.getElementById('selectedStopsInfo'),
-            routeBtn1 = document.getElementById('routeBtn1'),
-            routeBtn2 = document.getElementById('routeBtn2'),
-            clearBtn = document.getElementById('clearBtn');
+    // Fungsi untuk memilih POI dengan Fallback
+    window.selectPoi = async function(poi, isStart) {
+        if (selectingPoi) return;
+        selectingPoi = true;
 
-        if (selectedStartStop && selectedEndStop) {
-            document.getElementById('startStopInfo').innerHTML = `${selectedStartStop.name} <small>(${selectedStartStop.routeName})</small>`;
-            document.getElementById('endStopInfo').innerHTML = `${selectedEndStop.name} <small>(${selectedEndStop.routeName})</small>`;
-            infoDiv.style.display = 'block';
-            routeBtn1.disabled = false;
-            routeBtn2.disabled = false;
-            clearBtn.disabled = false;
-        } else if (selectedStartStop || selectedEndStop) {
-            document.getElementById('startStopInfo').innerHTML = selectedStartStop?.name || 'Pilih awal';
-            document.getElementById('endStopInfo').innerHTML = selectedEndStop?.name || 'Pilih tujuan';
-            infoDiv.style.display = 'block';
-            routeBtn1.disabled = true;
-            routeBtn2.disabled = true;
-            clearBtn.disabled = false;
-        } else {
-            infoDiv.style.display = 'none';
-            routeBtn1.disabled = true;
-            routeBtn2.disabled = true;
-            clearBtn.disabled = true;
+        const startInput = document.getElementById('startSearch');
+        const endInput = document.getElementById('endSearch');
+        const startResults = document.getElementById('startResults');
+        const endResults = document.getElementById('endResults');
+
+        try {
+            const response = await fetch(`/api/nearest-stop?lat=${poi.lat}&lng=${poi.lng}`);
+            const nearest = await response.json();
+
+            if (!nearest || !nearest.stop) {
+                alert(` Lokasi "${poi.name}" terlalu jauh dari halte TransJakarta.`);
+                return;
+            }
+
+            console.log('Nearest stop dari API:', nearest.stop);
+
+            // ========== Strategi Pencarian ==========
+            let originalStop = null;
+
+            // Strategi 1: Cari berdasarkan stop_id
+            originalStop = allStopsWithRoutes.find(s => s.id === nearest.stop.stop_id);
+            if (originalStop) {
+                console.log('✅ Ditemukan berdasarkan ID:', originalStop.name);
+            }
+
+            // Strategi 2: Cari berdasarkan nama stop (exact match)
+            if (!originalStop) {
+                const stopName = nearest.stop.stop_name.toLowerCase();
+                originalStop = allStopsWithRoutes.find(s =>
+                    s.name.toLowerCase() === stopName
+                );
+                if (originalStop) {
+                    console.log('✅ Ditemukan berdasarkan nama exact:', originalStop.name);
+                }
+            }
+
+            // Strategi 3: Cari berdasarkan nama stop (contains) - ambil yang terdekat
+            if (!originalStop) {
+                const stopName = nearest.stop.stop_name.toLowerCase();
+                const candidates = allStopsWithRoutes.filter(s =>
+                    s.name.toLowerCase().includes(stopName) ||
+                    stopName.includes(s.name.toLowerCase())
+                );
+
+                if (candidates.length > 0) {
+                    // Pilih yang terdekat dengan POI
+                    let minDist = Infinity;
+                    for (const candidate of candidates) {
+                        const dist = haversineDistance(poi.lat, poi.lng, candidate.lat, candidate.lng);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            originalStop = candidate;
+                        }
+                    }
+                    console.log(`✅ Ditemukan berdasarkan nama (${candidates.length} kandidat):`, originalStop.name);
+                }
+            }
+
+            // Strategi 4: Cari halte terdekat secara manual (Haversine)
+            if (!originalStop) {
+                console.warn('Mencari manual dengan Haversine...');
+                let nearestManual = null;
+                let minDistance = Infinity;
+
+                allStopsWithRoutes.forEach(stop => {
+                    const distance = haversineDistance(poi.lat, poi.lng, stop.lat, stop.lng);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestManual = stop;
+                    }
+                });
+
+                if (nearestManual && minDistance <= 5000) {
+                    originalStop = nearestManual;
+                    console.log('✅ Ditemukan manual (Haversine):', originalStop.name, 'Jarak:', (minDistance / 1000).toFixed(2), 'km');
+                }
+            }
+
+            if (!originalStop) {
+                alert(` Tidak dapat menemukan halte terdekat dari "${poi.name}".\n\nSilakan coba lokasi lain atau pilih halte secara manual.`);
+                return;
+            }
+
+            // Hitung jarak
+            const distanceToStop = haversineDistance(poi.lat, poi.lng, originalStop.lat, originalStop.lng);
+            const distanceKm = (distanceToStop / 1000).toFixed(2);
+
+            // Notifikasi jika jarak > 1 km
+            if (distanceToStop > 1000) {
+                // Tampilkan notifikasi (bisa pakai alert, toast, atau console.warn)
+                alert(` Perhatian!\n\nJarak dari "${poi.name}" ke halte terdekat "${originalStop.name}" adalah ${distanceKm} km.\n\nAnda perlu berjalan kaki sekitar ${Math.round(distanceToStop / 1000 * 12)} menit.`);
+
+                // Atau pakai console.warn
+                // console.warn(` Jarak jauh: ${distanceKm} km dari ${poi.name} ke ${originalStop.name}`);
+            }
+
+            const selectedItem = {
+                ...originalStop,
+                isPoi: true,
+                originalPoiName: poi.name,
+                poiCategory: poi.category,
+                walkingDistanceKm: distanceKm,
+                displayName: `${poi.name} (${originalStop.name})`
+            };
+
+            if (isStart) {
+                selectedStartStop = selectedItem;
+                startInput.value = `${poi.name} → Naik di ${originalStop.name} (${distanceKm} km)`;
+            } else {
+                selectedEndStop = selectedItem;
+                endInput.value = `${poi.name} → Turun di ${originalStop.name} (${distanceKm} km)`;
+            }
+
+            startResults.style.display = 'none';
+            endResults.style.display = 'none';
+            updateSelectedStopsInfo();
+
+        } catch (error) {
+            console.error('Error selecting POI:', error);
+            alert('Gagal memilih lokasi. Silakan coba lagi.');
+        } finally {
+            setTimeout(() => {
+                selectingPoi = false;
+            }, 500);
         }
     }
 
-    // ==================== FILTER KORIDOR ====================
+    // Fungsi updateSelectedStopsInfo dengan routeBtn1 & routeBtn2
+    function updateSelectedStopsInfo() {
+        const infoDiv = document.getElementById('selectedStopsInfo');
+        const routeBtn1 = document.getElementById('routeBtn1');
+        const routeBtn2 = document.getElementById('routeBtn2');
+        const clearBtn = document.getElementById('clearBtn');
+
+        if (selectedStartStop && selectedEndStop) {
+            let startText = selectedStartStop.isPoi ?
+                `${selectedStartStop.name}` :
+                `${selectedStartStop.name} <small style="color:#666;">(#${selectedStartStop.stopNumber} • ${selectedStartStop.routeName})</small>`;
+
+            let endText = selectedEndStop.isPoi ?
+                `${selectedEndStop.name}` :
+                `${selectedEndStop.name} <small style="color:#666;">(#${selectedEndStop.stopNumber} • ${selectedEndStop.routeName})</small>`;
+
+            document.getElementById('startStopInfo').innerHTML = startText;
+            document.getElementById('endStopInfo').innerHTML = endText;
+            infoDiv.style.display = 'flex';
+
+            //  Aktifkan kedua tombol
+            if (routeBtn1) routeBtn1.disabled = false;
+            if (routeBtn2) routeBtn2.disabled = false;
+            clearBtn.disabled = false;
+
+        } else if (selectedStartStop || selectedEndStop) {
+            if (selectedStartStop) {
+                let startText = selectedStartStop.isPoi ?
+                    `${selectedStartStop.name}` :
+                    `${selectedStartStop.name} <small style="color:#666;">(#${selectedStartStop.stopNumber} • ${selectedStartStop.routeName})</small>`;
+                document.getElementById('startStopInfo').innerHTML = startText;
+                document.getElementById('endStopInfo').innerHTML = 'Pilih tujuan';
+            }
+            if (selectedEndStop) {
+                let endText = selectedEndStop.isPoi ?
+                    `${selectedEndStop.name}` :
+                    `${selectedEndStop.name} <small style="color:#666;">(#${selectedEndStop.stopNumber} • ${selectedEndStop.routeName})</small>`;
+                document.getElementById('startStopInfo').innerHTML = 'Pilih awal';
+                document.getElementById('endStopInfo').innerHTML = endText;
+            }
+            infoDiv.style.display = 'flex';
+
+            //  Nonaktifkan tombol cari
+            if (routeBtn1) routeBtn1.disabled = true;
+            if (routeBtn2) routeBtn2.disabled = true;
+            clearBtn.disabled = false;
+
+        } else {
+            infoDiv.style.display = 'none';
+
+            //  Nonaktifkan semua tombol
+            if (routeBtn1) routeBtn1.disabled = true;
+            if (routeBtn2) routeBtn2.disabled = true;
+            if (clearBtn) clearBtn.disabled = true;
+        }
+    }
+
+    // ==================== Filter Koridor ====================
     function setupKoridorFilter() {
         const searchInput = document.getElementById('koridorSearch');
         if (!searchInput) return;
@@ -773,7 +1054,7 @@
         filterKoridor();
     }
 
-    // ==================== FUNGSI RUTE ====================
+    // ==================== Fungsi Rute ====================
     function findCompleteRoute(start, end, preference = 'distance') {
         console.log('🔍 Mencari rute dari:', start.name, 'ke', end.name);
         if (!allStopsWithRoutes.length) return {
@@ -861,9 +1142,9 @@
                 let weight = conn.distance;
                 const last = prevInfo[current];
 
-                // ========== PREFERENSI BERDASARKAN PARAMETER ==========
+                // ========== Preferensi berdasarkan parameter ==========
                 if (preference === 'transfer') {
-                    // PREFERENSI 2: PRIORITAS MINIM TRANSFER (Cari 2)
+                    // Preferensi 2: Prioritas minim transfer (Cari 2)
                     // Penalti transfer lebih kecil, bobot bus lebih kecil
 
                     if (last && last.routeId !== null && last.routeId !== conn.routeId && conn.type === 'bus') {
@@ -882,7 +1163,7 @@
                     }
 
                 } else {
-                    // PREFERENSI 1: PRIORITAS JARAK TERPENDEK (Cari 1) - DEFAULT
+                    // Preferensi 1: Prioritas jarak terpendek (Cari 1) / default
                     // Penalti transfer normal, bobot bus normal
 
                     if (last && last.routeId !== null && last.routeId !== conn.routeId && conn.type === 'bus') {
@@ -900,7 +1181,7 @@
                         weight = conn.distance * walkMult;
                     }
                 }
-                // ========== END PREFERENSI ==========
+                // ========== End Preferensi ==========
                 const newDist = distances[current] + weight;
                 if (newDist < distances[conn.stopId]) {
                     distances[conn.stopId] = newDist;
@@ -1000,20 +1281,52 @@
 
     function focusStop(lat, lng, name) {
         event.stopPropagation();
-        map.setView([lat, lng], 16);
-        L.popup().setLatLng([lat, lng]).setContent(`<b>${name}</b>`).openOn(map);
+        map.setView([lat, lng], 17);
+        //  Popup otomatis
+        L.popup()
+            .setLatLng([lat, lng])
+            .setContent(`<b>${name}</b>`)
+            .openOn(map);
     }
     window.focusStop = focusStop;
 
     function focusKoridor(id) {
-        if (routeLayers[id]) map.fitBounds(routeLayers[id].getBounds().pad(0.1));
+        const layer = routeLayers[id];
+        if (layer) {
+            map.fitBounds(layer.getBounds().pad(0.1));
+
+            //  Popup di tengah koridor
+            const bounds = layer.getBounds();
+            const center = bounds.getCenter();
+
+            // Cari nama koridor dari routeLayers atau routes
+            let koridorName = 'Koridor';
+            const route = routes.find(r => r.id == id);
+            if (route) {
+                koridorName = `Koridor ${route.short_name} - ${route.long_name}`;
+            }
+
+            L.popup()
+                .setLatLng(center)
+                .setContent(`<b>🚌 ${koridorName}</b><br>Klik untuk detail`)
+                .openOn(map);
+
+            // Hilangkan popup setelah 3 detik
+            setTimeout(() => {
+                map.closePopup();
+            }, 3000);
+        }
     }
     window.focusKoridor = focusKoridor;
 
-    async function saveSearchLog(start, end, result, time) {
+    async function saveSearchLog(start, end, result, time, startWalkingInfo, endWalkingInfo, preference = 'distance') {
         let total = 0;
-        for (let i = 0; i < result.stops.length - 1; i++) total += haversineDistance(result.stops[i].lat, result.stops[i].lng, result.stops[i + 1].lat, result.stops[i + 1].lng);
+        for (let i = 0; i < result.stops.length - 1; i++) {
+            total += haversineDistance(result.stops[i].lat, result.stops[i].lng, result.stops[i + 1].lat, result.stops[i + 1].lng);
+        }
         const estimasi = Math.round((total / 1000) * 4) + (result.koridors.length * 5);
+
+        //  Kirim data lengkap ke log, termasuk JSON
         await fetch('/api/pencarian-log', {
             method: 'POST',
             headers: {
@@ -1028,13 +1341,48 @@
                 total_jarak: total,
                 total_waktu: estimasi * 60,
                 total_pindah: result.koridors.length - 1,
-                algoritma: 'Dijkstra'
+                algoritma: 'Dijkstra',
+                preference: preference,
+                //  3 JSON
+                route_path_json: JSON.stringify(result.stops.map((s, i) => ({
+                    order: i + 1,
+                    name: s.name,
+                    id: s.id
+                }))),
+                koridors_json: JSON.stringify(result.koridors.map(k => ({
+                    short_name: k.short_name,
+                    color: k.color,
+                    long_name: k.long_name
+                }))),
+                walking_info_json: JSON.stringify({
+                    start: startWalkingInfo ? {
+                        from_poi: startWalkingInfo.fromPoi,
+                        to_stop: startWalkingInfo.toStop,
+                        distance_km: startWalkingInfo.distanceKm
+                    } : null,
+                    end: endWalkingInfo ? {
+                        from_stop: endWalkingInfo.fromStop,
+                        to_poi: endWalkingInfo.toPoi,
+                        distance_km: endWalkingInfo.distanceKm
+                    } : null
+                })
             })
-        }).catch(e => console.error);
+        }).catch(e => console.error('Error save log:', e));
     }
-    async function sendRouteToAlgoritmaPage(start, end, result, time) {
+
+    async function sendRouteToAlgoritmaPage(start, end, result, time, startWalkingInfo, endWalkingInfo) {
+
+        console.log('=== SEND TO ALGORITMA ===');
+        console.log('Stops length:', result.stops.length);
+        console.log('Route_path (first 3 stops):', result.stops.slice(0, 3).map(s => s.name));
+        console.log('Route_path (last stop):', result.stops[result.stops.length - 1].name);
+
         let total = 0;
-        for (let i = 0; i < result.stops.length - 1; i++) total += haversineDistance(result.stops[i].lat, result.stops[i].lng, result.stops[i + 1].lat, result.stops[i + 1].lng);
+        for (let i = 0; i < result.stops.length - 1; i++) {
+            total += haversineDistance(result.stops[i].lat, result.stops[i].lng, result.stops[i + 1].lat, result.stops[i + 1].lng);
+        }
+
+        //  Informasi Jalan Kaki
         await fetch('/admin/algoritma/store', {
             method: 'POST',
             headers: {
@@ -1058,7 +1406,19 @@
                     short_name: k.short_name,
                     color: k.color
                 })),
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                walking_info: {
+                    start: startWalkingInfo ? {
+                        from_poi: startWalkingInfo.fromPoi,
+                        to_stop: startWalkingInfo.toStop,
+                        distance_km: startWalkingInfo.distanceKm
+                    } : null,
+                    end: endWalkingInfo ? {
+                        from_stop: endWalkingInfo.fromStop,
+                        to_poi: endWalkingInfo.toPoi,
+                        distance_km: endWalkingInfo.distanceKm
+                    } : null
+                }
             })
         }).catch(e => console.error);
     }
@@ -1073,19 +1433,72 @@
         document.getElementById('routeBtn1').disabled = true;
         document.getElementById('routeBtn1').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mencari...';
 
+        // ========== Tangani POI (jalan kaki) ==========
+        let actualStartStop = selectedStartStop;
+        let actualEndStop = selectedEndStop;
+        let startWalkingInfo = null;
+        let endWalkingInfo = null;
+
+        // Jika start adalah POI
+        if (selectedStartStop.isPoi) {
+            const originalStop = allStopsWithRoutes.find(s => s.id === selectedStartStop.id);
+            if (originalStop) {
+                actualStartStop = originalStop;
+            }
+            startWalkingInfo = {
+                fromPoi: selectedStartStop.originalPoiName || selectedStartStop.name,
+                toStop: actualStartStop.name,
+                distanceKm: selectedStartStop.walkingDistanceKm || 0
+            };
+        }
+
+        // Jika end adalah POI
+        if (selectedEndStop.isPoi) {
+            const originalStop = allStopsWithRoutes.find(s => s.id === selectedEndStop.id);
+            if (originalStop) {
+                actualEndStop = originalStop;
+            }
+            endWalkingInfo = {
+                fromStop: actualEndStop.name,
+                toPoi: selectedEndStop.originalPoiName || selectedEndStop.name,
+                distanceKm: selectedEndStop.walkingDistanceKm || 0
+            };
+        }
+
+        // Validasi dengan memastikan kedua stop valid
+        if (!actualStartStop || !actualStartStop.id || !allStopsWithRoutes.find(s => s.id === actualStartStop.id)) {
+            alert('Lokasi awal tidak valid atau tidak memiliki halte terdekat');
+            document.getElementById('routeBtn1').disabled = false;
+            document.getElementById('routeBtn1').innerHTML = '<i class="fas fa-route"></i> Cari 1';
+            return;
+        }
+        if (!actualEndStop || !actualEndStop.id || !allStopsWithRoutes.find(s => s.id === actualEndStop.id)) {
+            alert('Lokasi tujuan tidak valid atau tidak memiliki halte terdekat');
+            document.getElementById('routeBtn1').disabled = false;
+            document.getElementById('routeBtn1').innerHTML = '<i class="fas fa-route"></i> Cari 1';
+            return;
+        }
+
         const start = performance.now();
         setTimeout(() => {
-            // Panggil fungsi dengan parameter preferensi jarak
-            const route = findCompleteRoute(selectedStartStop, selectedEndStop, 'distance');
+            const route = findCompleteRoute(actualStartStop, actualEndStop, 'distance');
+
+            console.log('=== HASIL ROUTE ===');
+            console.log('Total stops:', route.stops.length);
+            console.log('Sample stops:', route.stops.slice(0, 5));
+            console.log('Last stop:', route.stops[route.stops.length - 1]);
+
             const end = performance.now();
 
             if (route.stops.length === 0) {
-                alert('❌ Rute tidak ditemukan');
+                alert('Rute tidak ditemukan');
                 clearRoute();
             } else {
-                displayRouteResult(route);
-                saveSearchLog(selectedStartStop, selectedEndStop, route, end - start);
-                sendRouteToAlgoritmaPage(selectedStartStop, selectedEndStop, route, end - start);
+                displayRouteResultWithWalking(route, startWalkingInfo, endWalkingInfo);
+                saveSearchLog(actualStartStop, actualEndStop, route, end - start, startWalkingInfo, endWalkingInfo, 'distance');
+
+                //  Parameter Preference
+                sendRouteToAlgoritmaPage(actualStartStop, actualEndStop, route, end - start, startWalkingInfo, endWalkingInfo, 'distance');
             }
 
             document.getElementById('routeBtn1').disabled = false;
@@ -1103,25 +1516,218 @@
         document.getElementById('routeBtn2').disabled = true;
         document.getElementById('routeBtn2').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mencari...';
 
+        // ========== Tangani POI (Jalan Kaki) ==========
+        let actualStartStop = selectedStartStop;
+        let actualEndStop = selectedEndStop;
+        let startWalkingInfo = null;
+        let endWalkingInfo = null;
+
+        // Jika start adalah POI
+        if (selectedStartStop.isPoi) {
+            const originalStop = allStopsWithRoutes.find(s => s.id === selectedStartStop.id);
+            if (originalStop) {
+                actualStartStop = originalStop;
+            }
+            startWalkingInfo = {
+                fromPoi: selectedStartStop.originalPoiName || selectedStartStop.name,
+                toStop: actualStartStop.name,
+                distanceKm: selectedStartStop.walkingDistanceKm || 0
+            };
+        }
+
+        // Jika end adalah POI
+        if (selectedEndStop.isPoi) {
+            const originalStop = allStopsWithRoutes.find(s => s.id === selectedEndStop.id);
+            if (originalStop) {
+                actualEndStop = originalStop;
+            }
+            endWalkingInfo = {
+                fromStop: actualEndStop.name,
+                toPoi: selectedEndStop.originalPoiName || selectedEndStop.name,
+                distanceKm: selectedEndStop.walkingDistanceKm || 0
+            };
+        }
+
+        // Validasi dengan memastikan kedua stop valid
+        if (!actualStartStop || !actualStartStop.id || !allStopsWithRoutes.find(s => s.id === actualStartStop.id)) {
+            alert('Lokasi awal tidak valid atau tidak memiliki halte terdekat');
+            document.getElementById('routeBtn2').disabled = false;
+            document.getElementById('routeBtn2').innerHTML = '<i class="fas fa-route"></i> Cari 2';
+            return;
+        }
+        if (!actualEndStop || !actualEndStop.id || !allStopsWithRoutes.find(s => s.id === actualEndStop.id)) {
+            alert('Lokasi tujuan tidak valid atau tidak memiliki halte terdekat');
+            document.getElementById('routeBtn2').disabled = false;
+            document.getElementById('routeBtn2').innerHTML = '<i class="fas fa-route"></i> Cari 2';
+            return;
+        }
+
         const start = performance.now();
         setTimeout(() => {
             // Panggil fungsi dengan parameter preferensi transfer
-            const route = findCompleteRoute(selectedStartStop, selectedEndStop, 'transfer');
+            const route = findCompleteRoute(actualStartStop, actualEndStop, 'transfer');
             const end = performance.now();
 
             if (route.stops.length === 0) {
-                alert('❌ Rute tidak ditemukan');
+                alert('Rute tidak ditemukan');
                 clearRoute();
             } else {
-                displayRouteResult(route);
-                saveSearchLog(selectedStartStop, selectedEndStop, route, end - start);
-                sendRouteToAlgoritmaPage(selectedStartStop, selectedEndStop, route, end - start);
+                displayRouteResultWithWalking(route, startWalkingInfo, endWalkingInfo);
+                saveSearchLog(actualStartStop, actualEndStop, route, end - start, startWalkingInfo, endWalkingInfo, 'transfer');
+
+                //  PERBAIKAN: Tambah parameter preference
+                sendRouteToAlgoritmaPage(actualStartStop, actualEndStop, route, end - start, startWalkingInfo, endWalkingInfo, 'transfer');
             }
 
             document.getElementById('routeBtn2').disabled = false;
             document.getElementById('routeBtn2').innerHTML = '<i class="fas fa-route"></i> Cari 2';
         }, 100);
     };
+
+    // Fungsi baru untuk menampilkan rute dengan informasi jalan kaki POI
+    function displayRouteResultWithWalking(route, startWalkingInfo, endWalkingInfo) {
+        if (window.poiMarkers) {
+            window.poiMarkers.forEach(m => m.remove?.());
+        }
+        window.poiMarkers = [];
+
+        // Tambah marker POI awal (jika start adalah POI)
+        if (startWalkingInfo && startWalkingInfo.fromPoi && selectedStartStop && selectedStartStop.isPoi) {
+            const startPoiMarker = L.marker([selectedStartStop.lat, selectedStartStop.lng], {
+                icon: L.divIcon({
+                    html: `<div style="background: #e67e22; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px #e67e22; display: flex; align-items: center; justify-content: center; font-size: 16px;">📍</div>`,
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 18]
+                })
+            }).bindPopup(`<b>📍 ${startWalkingInfo.fromPoi}</b><br>🚶 Jalan kaki ke ${startWalkingInfo.toStop}<br>📏 ${startWalkingInfo.distanceKm} km`).addTo(map);
+            window.poiMarkers.push(startPoiMarker);
+        }
+
+        // Tambah marker POI tujuan (jika end adalah POI)
+        if (endWalkingInfo && endWalkingInfo.toPoi && selectedEndStop && selectedEndStop.isPoi) {
+            const endPoiMarker = L.marker([selectedEndStop.lat, selectedEndStop.lng], {
+                icon: L.divIcon({
+                    html: `<div style="background: #e74c3c; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px #e74c3c; display: flex; align-items: center; justify-content: center; font-size: 16px;">🏁</div>`,
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 18]
+                })
+            }).bindPopup(`<b>🏁 ${endWalkingInfo.toPoi}</b><br>🚶 Turun di ${endWalkingInfo.fromStop}<br>📏 ${endWalkingInfo.distanceKm} km`).addTo(map);
+            window.poiMarkers.push(endPoiMarker);
+        }
+
+        // Hapus layer lama
+        Object.values(routeLayers_temp).forEach(l => l.remove?.());
+        currentRouteMarkers.forEach(m => m.remove?.());
+        routeLayers_temp = {};
+        currentRouteMarkers = [];
+
+        const stops = route.stops;
+        const koridors = route.koridors;
+
+        // Gambar shape koridor
+        koridors.forEach((k, i) => {
+            if (k?.shape?.length) {
+                routeLayers_temp[`route_${k.id}_${i}`] = L.polyline(k.shape, {
+                    color: '#e74c3c',
+                    weight: 6,
+                    opacity: 0.9
+                }).addTo(map);
+            }
+        });
+
+        // Gambar titik antar halte
+        const points = [];
+        stops.forEach((s, i) => {
+            if (!s.lat) return;
+            points.push([s.lat, s.lng]);
+            let size = '10px',
+                color = '#e74c3c',
+                border = '2px';
+            if (i === 0) {
+                size = '20px';
+                color = '#27ae60';
+                border = '4px';
+            } else if (i === stops.length - 1) {
+                size = '20px';
+                color = '#e74c3c';
+                border = '4px';
+            }
+            const m = L.marker([s.lat, s.lng], {
+                icon: L.divIcon({
+                    html: `<div style="background:${color}; width:${size}; height:${size}; border-radius:50%; border:${border} solid white; box-shadow:0 0 10px ${color};"></div>`,
+                    iconSize: [parseInt(size) + 8, parseInt(size) + 8],
+                    iconAnchor: [(parseInt(size) + 8) / 2, (parseInt(size) + 8) / 2]
+                })
+            }).bindPopup(`<b>${s.name}</b><br>${s.routeName}`);
+            m.addTo(map);
+            currentRouteMarkers.push(m);
+        });
+
+        if (points.length > 1) {
+            routeLayers_temp.routeLine = L.polyline(points, {
+                color: '#f39c12',
+                weight: 5,
+                opacity: 0.8
+            }).addTo(map);
+        }
+
+        // Hitung total jarak
+        let total = 0;
+        for (let i = 0; i < points.length - 1; i++) {
+            total += haversineDistance(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
+        }
+
+        // Build HTML dengan informasi jalan kaki POI
+        let routeInfoHTML = '';
+
+        // Jalan kaki awal (POI)
+        if (startWalkingInfo) {
+            routeInfoHTML += `
+            <div class="route-info-item" style="background: #fff3e0;">
+                <div class="route-color-box" style="background: #e67e22;"></div>
+                <span><b>🚶 Jalan Kaki:</b> ${escapeHtml(startWalkingInfo.fromPoi)} → ${escapeHtml(startWalkingInfo.toStop)} (${startWalkingInfo.distanceKm} km)</span>
+            </div>
+        `;
+        }
+
+        // Koridor yang dilewati
+        koridors.forEach((k, i) => {
+            routeInfoHTML += `
+            <div class="route-info-item" onclick="focusKoridor('${k.id}')">
+                <div class="route-color-box" style="background: ${k.color};"></div>
+                <span><b>Koridor ${k.short_name}</b> - ${escapeHtml(k.long_name)}</span>
+            </div>
+        `;
+        });
+
+        // Jalan kaki tujuan (POI)
+        if (endWalkingInfo) {
+            routeInfoHTML += `
+            <div class="route-info-item" style="background: #fff3e0;">
+                <div class="route-color-box" style="background: #e67e22;"></div>
+                <span><b>🚶 Jalan Kaki:</b> ${escapeHtml(endWalkingInfo.fromStop)} → ${escapeHtml(endWalkingInfo.toPoi)} (${endWalkingInfo.distanceKm} km)</span>
+            </div>
+        `;
+        }
+
+        // Ringkasan perjalanan
+        routeInfoHTML += `
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc;">
+            <small>${stops.length} halte dilewati</small><br>
+            <small>Jarak tempuh: ${(total/1000).toFixed(2)} km</small><br>
+            <small>Estimasi: ~${Math.round((total/1000)*4)+(koridors.length*5)} Menit</small><br>
+            <small>${koridors.length} koridor</small>
+        </div>
+    `;
+
+        document.getElementById('routeInfoPanel').innerHTML = routeInfoHTML;
+        document.getElementById('routeKoridorList').innerHTML = koridors.map((k, i) => `<div class="route-info-item" onclick="focusKoridor('${k.id}')"><span class="badge badge-primary" style="background:${k.color}">${i+1}</span><div><strong>Koridor ${k.short_name}</strong><br><small>${k.long_name}</small></div><div class="route-color-box" style="background:${k.color}"></div></div>`).join('') || '<p class="text-muted">Tidak ada koridor</p>';
+        document.getElementById('routeStopsList').innerHTML = stops.map((s, i) => `<div class="stops-list-item" onclick="focusStop(${s.lat}, ${s.lng}, '${s.name}')"><span class="stop-number">${i+1}</span><span class="stop-name">${i===0?'⚡ ':i===stops.length-1?'🏁 ':''}${escapeHtml(s.name)}</span><span class="stop-route">${escapeHtml(s.routeName)}</span></div>`).join('');
+
+        if (points.length > 1) {
+            map.fitBounds(L.latLngBounds(points).pad(0.1));
+        }
+    }
 
     window.clearRoute = function() {
         selectedStartStop = null;
@@ -1141,7 +1747,7 @@
         document.getElementById('clearBtn').disabled = true;
     };
 
-    // ==================== INIT ====================
+    // ==================== Init ====================
     document.addEventListener('DOMContentLoaded', function() {
         drawAllRoutes();
         setupSearch();

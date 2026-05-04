@@ -18,7 +18,11 @@ class PencarianLog extends Model
         'total_waktu',
         'total_pindah',
         'algoritma',
-        'bobot_preferensi'
+        'preference',
+        'bobot_preferensi',
+        'route_path_json',
+        'koridors_json',
+        'walking_info_json',
     ];
 
     protected $casts = [
@@ -33,5 +37,21 @@ class PencarianLog extends Model
     public function halteTujuan(): BelongsTo
     {
         return $this->belongsTo(Stop::class, 'id_halte_tujuan', 'stop_id');
+    }
+
+    // Accessor untuk mengurai JSON otomatis
+    public function getRoutePathAttribute()
+    {
+        return $this->route_path_json ? json_decode($this->route_path_json, true) : null;
+    }
+
+    public function getKoridorsAttribute()
+    {
+        return $this->koridors_json ? json_decode($this->koridors_json, true) : null;
+    }
+
+    public function getWalkingInfoAttribute()
+    {
+        return $this->walking_info_json ? json_decode($this->walking_info_json, true) : null;
     }
 }

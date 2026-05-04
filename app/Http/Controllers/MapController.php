@@ -69,7 +69,7 @@ class MapController extends Controller
     }
 
     /**
-     * API: Ambil semua halte unik dalam format JSON
+     * API ambil semua halte unik dalam format JSON
      */
     public function getJsonHalte()
     {

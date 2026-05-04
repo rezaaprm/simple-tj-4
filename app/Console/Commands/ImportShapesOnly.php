@@ -17,14 +17,14 @@ class ImportShapesOnly extends Command
         $file = $this->argument('file');
 
         if (!file_exists($file)) {
-            $this->error("❌ File $file tidak ditemukan!");
+            $this->error("File $file tidak ditemukan!");
             return Command::FAILURE;
         }
 
-        $this->info('🚀 Memulai import shapes...');
+        $this->info('Memulai import shapes...');
 
         DB::table('tb_shapes')->truncate();
-        $this->info('✅ Data shapes lama dihapus');
+        $this->info('Data shapes lama dihapus');
 
         $csv = Reader::createFromPath($file, 'r');
         $csv->setHeaderOffset(0);
@@ -59,7 +59,7 @@ class ImportShapesOnly extends Command
         }
 
         $this->newLine();
-        $this->info("✅ Berhasil import: " . number_format($counter) . " titik shapes");
+        $this->info("Berhasil import: " . number_format($counter) . " titik shapes");
 
         return Command::SUCCESS;
     }

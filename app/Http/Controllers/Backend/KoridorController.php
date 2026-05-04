@@ -14,7 +14,7 @@ class KoridorController extends Controller
     {
         $koridors = Route::orderBy('route_short_name')->get();
 
-        // Ambil data routes LENGKAP dengan shape
+        // Ambil data routes lengkap juga dengan shape
         $gtfsCache = new \App\Services\GtfsCacheService();
         $routes = $gtfsCache->getRoutesWithStopsAndShapes();
 

@@ -33,7 +33,7 @@
                         <tr>
                             <td>
                                 <a href="javascript:void(0)"
-                                    onclick="goToAlgoritma({{ $log->id }})"
+                                    onclick="goToAlgoritma({{ $log->id }}, true)"
                                     class="text-primary font-weight-bold"
                                     style="text-decoration: none; cursor: pointer;">
                                     {{ ($logs->currentPage() - 1) * $logs->perPage() + $index + 1 }}
@@ -68,8 +68,12 @@
 
 @push('scripts')
 <script>
-    function goToAlgoritma(logId) {
-        window.location.href = '/admin/algoritma?log_id=' + logId;
+    function goToAlgoritma(logId, fromSession = true) {
+        if (fromSession) {
+            window.location.href = '/admin/algoritma?log_id=' + logId + '&from_session=1';
+        } else {
+            window.location.href = '/admin/algoritma?log_id=' + logId;
+        }
     }
 </script>
 @endpush

@@ -60,7 +60,7 @@ class PencarianRuteService
             'node_dikunjungi' => count($jalurId),
             'total_jarak' => $totalJarak,
             'total_waktu' => $totalJarak / 8.33 * 3.6, // estimasi 30 km/jam
-            'total_pindah' => 0, // TODO: hitung pindah koridor
+            'total_pindah' => 0,
             'algoritma' => 'Dijkstra',
         ]);
 

@@ -191,4 +191,29 @@ class TransportasiController extends Controller
             ], 500);
         }
     }
+
+    public function getJsonPoi()
+    {
+        $pois = \App\Models\Poi::all();
+
+        // Kelompokkan berdasarkan kategori
+        $grouped = $pois->groupBy('category');
+
+        return response()->json([
+            'total' => $pois->count(),
+            'total_kategori' => $grouped->count(),
+            'data' => $grouped
+        ]);
+    }
+
+    public function getJsonPoiByCategory($kategori)
+    {
+        $pois = \App\Models\Poi::where('category', $kategori)->get();
+
+        return response()->json([
+            'kategori' => $kategori,
+            'total' => $pois->count(),
+            'data' => $pois
+        ]);
+    }
 }

@@ -45,6 +45,9 @@
                         <button class="btn btn-outline-primary filter-btn" data-region="pusat" onclick="filterByRegion('pusat')">
                             <i class="fa-solid fa-location-dot"></i> Pusat
                         </button>
+                        <button class="btn btn-outline-primary filter-btn" data-region="bodetabek" onclick="filterByRegion('bodetabek')">
+                            <i class="fa-solid fa-city"></i> Bodetabek
+                        </button>
                     </div>
                 </div>
             </div>
@@ -68,12 +71,11 @@
                         @php
                         $lat = $item->stop_lat;
                         $lng = $item->stop_lon;
-                        if ($lat >= -6.1 && $lat <= -6.0 && $lng>= 106.7 && $lng <= 107.0) $region='utara' ;
-                                elseif ($lat>= -6.3 && $lat <= -6.1 && $lng>= 106.9 && $lng <= 107.0) $region='timur' ;
+                        if ($lat >= -6.15 && $lat <= -6.05 && $lng>= 106.75 && $lng <= 106.95) $region='utara' ; elseif ($lat>= -6.3 && $lat <= -6.1 && $lng>= 106.9 && $lng <= 107.0) $region='timur' ;
                                         elseif ($lat>= -6.4 && $lat <= -6.2 && $lng>= 106.7 && $lng <= 106.9) $region='selatan' ;
                                                 elseif ($lat>= -6.3 && $lat <= -6.1 && $lng>= 106.6 && $lng <= 106.8) $region='barat' ;
                                                         elseif ($lat>= -6.25 && $lat <= -6.15 && $lng>= 106.8 && $lng <= 106.9) $region='pusat' ;
-                                                                else $region='lainnya' ;
+                                                                else $region='bodetabek' ;
                                                                 @endphp
                                                                 <tr class="halte-row" data-lat="{{ $lat }}" data-lng="{{ $lng }}" data-name="{{ $item->stop_name }}" data-region="{{ $region }}">
                                                                 <td>{{ ($halte->currentPage() - 1) * $halte->perPage() + $index + 1 }}</td>
@@ -124,16 +126,16 @@
         selatan: '#e74c3c',
         barat: '#f39c12',
         pusat: '#9b59b6',
-        lainnya: '#95a5a6'
+        bodetabek: '#95a5a6'
     };
 
     // Batas wilayah untuk zoom
     const REGION_BOUNDS = {
         utara: {
-            minLat: -6.1,
-            maxLat: -6.0,
-            minLng: 106.7,
-            maxLng: 107.0
+            minLat: -6.15,
+            maxLat: -6.05,
+            minLng: 106.75,
+            maxLng: 106.95
         },
         timur: {
             minLat: -6.3,
@@ -163,20 +165,26 @@
 
     // Fungsi menentukan region (sama seperti di PHP)
     function getRegion(lat, lng) {
-        if (lat >= -6.1 && lat <= -6.0 && lng >= 106.7 && lng <= 107.0) return 'utara';
-        if (lat >= -6.3 && lat <= -6.1 && lng >= 106.9 && lng <= 107.0) return 'timur';
+        // Utara (Jakarta Utara)
+        if (lat >= -6.15 && lat <= -6.05 && lng >= 106.75 && lng <= 106.95) return 'utara';
+        // Timur (Jakarta Timur)
+        if (lat >= -6.3 && lat <= -6.15 && lng >= 106.9 && lng <= 107.0) return 'timur';
+        // Selatan (Jakarta Selatan)
         if (lat >= -6.4 && lat <= -6.2 && lng >= 106.7 && lng <= 106.9) return 'selatan';
+        // Barat (Jakarta Barat)
         if (lat >= -6.3 && lat <= -6.1 && lng >= 106.6 && lng <= 106.8) return 'barat';
+        // Pusat (Jakarta Pusat)
         if (lat >= -6.25 && lat <= -6.15 && lng >= 106.8 && lng <= 106.9) return 'pusat';
-        return 'lainnya';
+        // Sisa lokasi sekitar Jakarta (Bodetabek)
+        return 'bodetabek';
     }
 
-    // ==================== FUNGSI TOGGLE HALTE (seperti Projek 5) ====================
+    // ==================== Fungsi Toggle Halte dari Projek 5 ====================
     function toggleHalte() {
         const toggleBtn = document.getElementById('toggleHalteBtn');
 
         if (stopsVisible) {
-            // SEMBUNYIKAN semua halte
+            // Sembunyikan semua halte
             Object.values(stopMarkers).forEach(marker => {
                 if (marker && map.hasLayer(marker)) {
                     map.removeLayer(marker);
@@ -188,7 +196,7 @@
             toggleBtn.classList.add('btn-secondary');
             console.log('Halte disembunyikan');
         } else {
-            // TAMPILKAN semua halte sesuai filter region
+            // Tampilkan semua halte sesuai filter region
             drawHalteByRegion(currentRegion);
             stopsVisible = true;
             toggleBtn.innerHTML = '<i class="fa-regular fa-eye-slash"></i> Toggle Halte';
@@ -198,7 +206,7 @@
         }
     }
 
-    // Menampilkan halte berdasarkan region (seperti drawAllStops tapi dengan filter)
+    // Menampilkan halte berdasarkan region, seperti drawAllStops tapi dengan filter
     function drawHalteByRegion(region) {
         // Hapus marker yang ada
         Object.values(stopMarkers).forEach(marker => {
@@ -244,7 +252,7 @@
         infoSpan.innerHTML = `📍 ${regionName}: ${filteredStops.length} halte`;
     }
 
-    // ==================== FUNGSI FILTER REGION ====================
+    // ==================== Fungsi Filter Region ====================
     function filterByRegion(region) {
         currentRegion = region;
 
@@ -274,6 +282,28 @@
             }
         });
 
+        // Badge di tabel
+        if (region !== 'all') {
+            rows.forEach(row => {
+                const badgeSpan = row.querySelector('.region-badge');
+                if (badgeSpan && row.style.display !== 'none') {
+                    badgeSpan.textContent = ucfirst(region);
+                    badgeSpan.className = `badge region-badge region-${region}`;
+                }
+            });
+        } else {
+            rows.forEach(row => {
+                const originalRegion = row.getAttribute('data-region');
+                const badgeSpan = row.querySelector('.region-badge');
+                if (badgeSpan) {
+                    let displayRegion = originalRegion;
+                    if (displayRegion === 'lainnya') displayRegion = 'bodetabek';
+                    badgeSpan.textContent = ucfirst(displayRegion);
+                    badgeSpan.className = `badge region-badge region-${displayRegion}`;
+                }
+            });
+        }
+
         // Update info region
         let regionInfo = document.getElementById('regionInfo');
         if (!regionInfo) {
@@ -283,7 +313,7 @@
             document.querySelector('.card-header .d-flex').appendChild(regionInfo);
         }
         const regionName = region === 'all' ? 'Semua Wilayah' : ucfirst(region);
-        regionInfo.innerHTML = `🎯 Filter: ${regionName} (${visibleCount} halte)`;
+        regionInfo.innerHTML = `Filter: ${regionName} (${visibleCount} halte)`;
 
         // Jika halte sedang aktif, update map
         if (stopsVisible && mapVisible && map) {
@@ -304,7 +334,7 @@
         return str.charAt(0).toUpperCase() + str.slice(1);
     }
 
-    // ==================== TOGGLE MAP ====================
+    // ==================== Toggle Map ====================
     function toggleMap() {
         const mapDiv = document.getElementById('halte-map');
         const toggleBtn = document.getElementById('toggleMapBtn');
@@ -332,13 +362,36 @@
     }
 
     function initMap() {
-        map = L.map('halte-map').setView([-6.2088, 106.8456], 11);
+        // Batas Wilayah sesuai dengan data halte terluar Jabodetabek
+        const jabodetabekBounds = L.latLngBounds(
+            L.latLng(-6.6, 106.5), // Barat Daya (Bogor, Ciputat)
+            L.latLng(-5.9, 107.2) // Timur Laut (Bekasi, Tangerang)
+        );
+
+        map = L.map('halte-map', {
+            center: [-6.2088, 106.8456],
+            zoom: 11,
+            minZoom: 10,
+            maxZoom: 18,
+            maxBounds: jabodetabekBounds,
+            maxBoundsViscosity: 1.0,
+            bounceAtZoomLimits: false,
+            attributionControl: false
+        });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: ''
         }).addTo(map);
 
-        // Jika toggle halte aktif saat map pertama kali dibuka
+        // Garis batas merah
+        L.rectangle(jabodetabekBounds, {
+            color: "#ff4444",
+            weight: 2,
+            opacity: 0.3,
+            fillOpacity: 0,
+            dashArray: "5, 5"
+        }).addTo(map);
+
         if (stopsVisible) {
             drawHalteByRegion(currentRegion);
         }
@@ -358,13 +411,36 @@
         }, 200);
     }
 
-    // ==================== EVENT LISTENER ====================
+    // ==================== Event Listener ====================
     document.getElementById('toggleHalteBtn').addEventListener('click', toggleHalte);
     document.getElementById('toggleMapBtn').addEventListener('click', toggleMap);
     document.querySelectorAll('.focus-halte').forEach(btn => {
         btn.addEventListener('click', function() {
             focusHalte(this);
         });
+    });
+
+    // ==================== Init Datatables ====================
+    $(document).ready(function() {
+        // Hanya jalankan jika tabel ada
+        if ($('#datatable-halte').length) {
+            $('#datatable-halte').DataTable({
+                "pageLength": 25,
+                "language": {
+                    "search": "Cari:",
+                    "lengthMenu": "Tampilkan _MENU_ data per halaman",
+                    "info": "Menampilkan _START_ sampai _END_ dari _TOTAL_ data",
+                    "paginate": {
+                        "first": "Pertama",
+                        "last": "Terakhir",
+                        "next": "→",
+                        "previous": "←"
+                    }
+                },
+                "bDestroy": true,
+                "bPaginate": false // Matikan paginasi DataTables (pakai dari Laravel)
+            });
+        }
     });
 </script>
 @endpush
@@ -417,7 +493,7 @@
         color: white;
     }
 
-    .region-lainnya {
+    .region-bodetabek {
         background-color: #95a5a6;
         color: white;
     }

@@ -11,7 +11,7 @@ class RunAllSeeders extends Command
 
     public function handle()
     {
-        $this->info('🌱 MENJALANKAN SEMUA SEEDER...');
+        $this->info('MENJALANKAN SEMUA SEEDER');
         $this->line(str_repeat('=', 50));
 
         $seeders = [
@@ -24,12 +24,12 @@ class RunAllSeeders extends Command
         ];
 
         foreach ($seeders as $seeder) {
-            $this->info("➡️  Menjalankan $seeder...");
+            $this->info("Menjalankan $seeder...");
             $this->call("db:seed", ['--class' => $seeder]);
             $this->line("");
         }
 
-        $this->info('✅ SEMUA SEEDER SELESAI!');
+        $this->info('SEMUA SEEDER SELESAI');
         return Command::SUCCESS;
     }
 }

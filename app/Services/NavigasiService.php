@@ -45,7 +45,7 @@ class NavigasiService
             return [];
         }
 
-        // Dijkstra Algorithm
+        // Algoritma Dijkstra
         $jarak = [];
         $sebelumnya = [];
         $antrian = new \SplPriorityQueue();
@@ -167,7 +167,6 @@ class NavigasiService
 
     /**
      * Hapus cache graf navigasi
-     * HANYA SATU METHOD INI!
      */
     public function clearCache()
     {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\PencarianLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Session;
 
 class PencarianLogController extends Controller
 {
@@ -39,8 +40,7 @@ class PencarianLogController extends Controller
     public function getLogDetail($id)
     {
         try {
-            $log = PencarianLog::with(['halteAwal', 'halteTujuan'])
-                ->find($id);
+            $log = PencarianLog::with(['halteAwal', 'halteTujuan'])->find($id);
 
             if (!$log) {
                 return response()->json([
@@ -49,31 +49,28 @@ class PencarianLogController extends Controller
                 ], 404);
             }
 
-            // Hitung koridor yang dilewati (simulasi)
-            // Karena di log tidak menyimpan koridor, kita hitung dari jarak dan pindah
-            $koridors = [];
-            for ($i = 0; $i <= ($log->total_pindah ?? 0); $i++) {
-                $koridors[] = [
-                    'id' => 'log_' . ($i + 1),
-                    'short_name' => ($i + 1) . ($i == 0 ? ' (Awal)' : ' (Transfer ' . $i . ')'),
-                    'long_name' => 'Dari log ID #' . $log->id,
-                    'color' => $this->getColorByIndex($i)
+            // Gunakan data dari JSON jika ada
+            $routePath = $log->route_path;
+            $koridors = $log->koridors;
+            $walkingInfo = $log->walking_info;
+
+            // Jika tidak ada data JSON, gunakan data default
+            if (!$routePath) {
+                $routePath = [
+                    ['order' => 1, 'name' => $log->halteAwal->stop_name ?? 'Unknown'],
+                    ['order' => $log->node_dikunjungi ?? 2, 'name' => $log->halteTujuan->stop_name ?? 'Unknown']
                 ];
             }
 
-            // Buat route path simulasi (dari halte awal ke tujuan)
-            $routePath = [
-                [
-                    'id' => $log->id_halte_awal,
-                    'name' => $log->halteAwal->stop_name ?? 'Unknown',
-                    'order' => 1
-                ],
-                [
-                    'id' => $log->id_halte_tujuan,
-                    'name' => $log->halteTujuan->stop_name ?? 'Unknown',
-                    'order' => $log->node_dikunjungi ?? 2
-                ]
-            ];
+            if (!$koridors) {
+                $koridors = [];
+                for ($i = 0; $i <= ($log->total_pindah ?? 0); $i++) {
+                    $koridors[] = [
+                        'short_name' => ($i + 1) . ($i == 0 ? '' : ' (Transfer)'),
+                        'color' => $this->getColorByIndex($i)
+                    ];
+                }
+            }
 
             return response()->json([
                 'success' => true,
@@ -85,11 +82,43 @@ class PencarianLogController extends Controller
                     'total_stops' => $log->node_dikunjungi,
                     'total_transfers' => $log->total_pindah,
                     'execution_time' => $log->waktu_eksekusi_ms,
+                    'preference' => $log->preference ?? 'distance',
                     'route_path' => $routePath,
                     'koridors' => $koridors,
+                    'walking_info' => $walkingInfo,
                     'timestamp' => $log->created_at->toDateTimeString(),
                     'is_from_log' => true
                 ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get route data from session by log ID
+     */
+    public function getFromSession($id)
+    {
+        try {
+            $lastRoute = Session::get('last_route_calculation', null);
+
+            if (!$lastRoute) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data rute tidak ditemukan di session'
+                ], 404);
+            }
+
+            $lastRoute['id'] = $id;
+            $lastRoute['is_from_session'] = true;
+
+            return response()->json([
+                'success' => true,
+                'data' => $lastRoute
             ]);
         } catch (\Exception $e) {
             return response()->json([

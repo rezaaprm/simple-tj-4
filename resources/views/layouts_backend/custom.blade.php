@@ -67,7 +67,7 @@
 </nav>
 
 <script>
-    // Gunakan event delegation untuk memastikan tombol berfungsi
+    // Event Delegation untuk memastikan tombol berfungsi
     document.addEventListener('DOMContentLoaded', function() {
         // Fungsi untuk lompat halaman
         function goToPage(inputElement, lastPage) {

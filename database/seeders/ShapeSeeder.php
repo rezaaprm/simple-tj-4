@@ -11,19 +11,16 @@ class ShapeSeeder extends Seeder
     public function run()
     {
         if ($this->command) {
-            $this->command->info('🚀 Import ShapeSeeder dimulai...');
+            $this->command->info('Import ShapeSeeder');
         }
 
         $path = public_path('gtfs/transjakarta/shapes.txt');
         if (!file_exists($path)) {
             if ($this->command) {
-                $this->command->error('❌ File shapes.txt tidak ditemukan!');
+                $this->command->error('File shapes.txt tidak ditemukan');
             }
             return;
         }
-
-        // HAPUS BARIS INI!
-        // DB::table('tb_shapes')->truncate();
 
         $csv = Reader::createFromPath($path, 'r');
         $csv->setHeaderOffset(0);
@@ -62,7 +59,7 @@ class ShapeSeeder extends Seeder
             }
 
             if ($counter % 20000 == 0 && $this->command) {
-                $this->command->line("  ... sudah $counter baris");
+                $this->command->line(" sudah $counter baris");
             }
         }
 
@@ -73,7 +70,7 @@ class ShapeSeeder extends Seeder
         $total = DB::table('tb_shapes')->count();
         if ($this->command) {
             $this->command->newLine();
-            $this->command->info("✅ ShapeSeeder selesai! Total: " . number_format($total) . " titik shapes");
+            $this->command->info("ShapeSeeder selesai, Total " . number_format($total) . " titik shapes");
         }
     }
 }

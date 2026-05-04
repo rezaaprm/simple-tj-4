@@ -117,12 +117,12 @@
     </div>
 </div>
 
-<!-- Modal Data GTFS (sama persis dengan Projek 5) -->
+<!-- Modal Data GTFS (Projek 5) -->
 <div id="gtfsDataModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
     <div style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-height: 80vh; overflow-y: auto; position: relative;">
         <span id="closeDataModal" style="position: absolute; right: 20px; top: 10px; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
 
-        <h3>📊 Data Mentah Transjakarta (GTFS)</h3>
+        <h3>Data Mentah Transjakarta (GTFS)</h3>
         <hr>
 
         <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -139,6 +139,13 @@
 
             <!-- Dropdown untuk pilih jenis JSON -->
             <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+                <div id="poiCategoryGroup" style="display: none; align-items: center; gap: 10px;">
+                    <label style="white-space: nowrap;">Kategori POI :</label>
+                    <select id="poiCategoryFilter" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd; background: white; min-width: 150px;">
+                        <option value="semua">Semua Kategori</option>
+                    </select>
+                </div>
+
                 <label style="white-space: nowrap;">Tampilkan JSON :</label>
                 <select id="jsonTypeFilter" style="padding: 5px; border-radius: 4px; border: 1px solid #ddd; background: white; min-width: 120px;">
                     <option value="semua">Semua</option>
@@ -146,6 +153,7 @@
                     <option value="shape">Shape</option>
                     <option value="rute">Rute</option>
                     <option value="warna">Warna</option>
+                    <option value="poi">POI (Tempat Menarik)</option>
                 </select>
                 <a href="#" id="jsonViewBtn" target="_blank"
                     style="padding: 6px 15px; background: white; border: 1px solid #333; border-radius: 4px; color: #333; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 5px;">
@@ -183,7 +191,7 @@
 
 @push('scripts')
 <script>
-    // ==================== MODAL DATA GTFS ====================
+    // ==================== Modal Data GTFS ====================
     const modal = document.getElementById("gtfsDataModal");
     const btnLihat = document.getElementById("openDataModalBtn");
     const spanClose = document.getElementById("closeDataModal");
@@ -191,7 +199,7 @@
     const jsonTypeFilter = document.getElementById("jsonTypeFilter");
     const jsonViewBtn = document.getElementById("jsonViewBtn");
 
-    // Data routes untuk modal (ambil dari controller atau fetch)
+    // Data routes untuk modal, ambil dari controller atau fetch
     let routesData = [];
 
     // Fungsi untuk mengambil data routes dari server
@@ -255,14 +263,14 @@
         `).join('');
     }
 
-    // Event listener untuk filter data di modal
+    // Event Listener untuk filter data di modal
     if (filterSelect) {
         filterSelect.onchange = function() {
             renderModalData(this.value);
         };
     }
 
-    // Event listener untuk membuka modal
+    // Event Listener untuk membuka modal
     if (btnLihat) {
         btnLihat.onclick = async function() {
             // Ambil data routes jika belum ada
@@ -274,19 +282,65 @@
         };
     }
 
-    // Event listener untuk menutup modal (tombol X)
+    // Event Listener untuk menutup modal (tombol X)
     if (spanClose) {
         spanClose.onclick = function() {
             modal.style.display = "none";
         };
     }
 
-    // Event listener untuk menutup modal (klik di luar modal)
+    // Event Listener untuk menutup modal (klik di luar modal)
     window.onclick = function(e) {
         if (e.target == modal) {
             modal.style.display = "none";
         }
     };
+
+    // Fungsi untuk mengambil daftar kategori POI
+    async function loadPoiCategories() {
+        try {
+            const response = await fetch('/api/poi/categories');
+            const categories = await response.json();
+
+            const categorySelect = document.getElementById('poiCategoryFilter');
+            if (categorySelect && categories.length > 0) {
+                // Hapus option "Semua Kategori" sementara
+                categorySelect.innerHTML = '<option value="semua">Semua Kategori</option>';
+
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+                    categorySelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Gagal load kategori POI:', error);
+        }
+    }
+
+    // Tampilkan / sembunyikan dropdown kategori berdasarkan pilihan JSON
+    if (jsonTypeFilter) {
+        jsonTypeFilter.addEventListener('change', function() {
+            const poiCategoryGroup = document.getElementById('poiCategoryGroup');
+            if (this.value === 'poi') {
+                if (poiCategoryGroup) poiCategoryGroup.style.display = 'flex';
+                // Load kategori jika dropdown masih kosong (hanya option "Semua Kategori")
+                const categorySelect = document.getElementById('poiCategoryFilter');
+                if (categorySelect && categorySelect.options.length === 1) {
+                    loadPoiCategories();
+                }
+            } else {
+                if (poiCategoryGroup) poiCategoryGroup.style.display = 'none';
+            }
+        });
+    }
+
+    // Trigger sekali saat halaman dimuat untuk set initial state
+    if (jsonTypeFilter && jsonTypeFilter.value === 'poi') {
+        const event = new Event('change');
+        jsonTypeFilter.dispatchEvent(event);
+    }
 
     // Handler untuk dropdown JSON
     if (jsonViewBtn && jsonTypeFilter) {
@@ -297,26 +351,35 @@
 
             switch (selectedType) {
                 case 'halte':
-                    url = '/api/json/halte';
+                    url = "{{ url('/api/json/halte') }}";
                     break;
                 case 'shape':
-                    url = '/api/json/shape';
+                    url = "{{ url('/api/json/shape') }}";
                     break;
                 case 'rute':
-                    url = '/api/json/rute';
+                    url = "{{ url('/api/json/rute') }}";
                     break;
                 case 'warna':
-                    url = '/api/json/warna';
+                    url = "{{ url('/api/json/warna') }}";
+                    break;
+                case 'poi':
+                    // Cek apakah ada kategori yang dipilih
+                    const selectedCategory = document.getElementById('poiCategoryFilter')?.value;
+                    if (selectedCategory && selectedCategory !== 'semua') {
+                        url = "{{ url('/api/json/poi/kategori') }}/" + selectedCategory;
+                    } else {
+                        url = "{{ url('/api/json/poi') }}";
+                    }
                     break;
                 default:
-                    url = '/routes-json';
+                    url = "{{ url('/routes-json') }}";
             }
 
             window.open(url, '_blank');
         });
     }
 
-    // Optional: Tambahkan efek hover pada tombol JSON
+    // Efek hover pada tombol JSON
     if (jsonViewBtn) {
         jsonViewBtn.addEventListener('mouseenter', function() {
             this.style.backgroundColor = '#f0f0f0';

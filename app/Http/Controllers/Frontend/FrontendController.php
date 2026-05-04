@@ -17,7 +17,7 @@ class FrontendController extends Controller
      */
     public function index()
     {
-        //
+        // digunakan untuk menampilkan view di browser
         $about = About::first();
         $statistik = InfoStatistik::orderBy('id_info_statistik')->get();
         $destinasi = Destinasi::all()->groupBy('kategori');

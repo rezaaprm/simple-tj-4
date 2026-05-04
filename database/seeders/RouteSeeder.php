@@ -11,13 +11,13 @@ class RouteSeeder extends Seeder
     public function run()
     {
         if ($this->command) {
-            $this->command->info('🚀 Import RouteSeeder dimulai...');
+            $this->command->info('Import RouteSeeder');
         }
 
         $path = public_path('gtfs/transjakarta/routes.txt');
         if (!file_exists($path)) {
             if ($this->command) {
-                $this->command->error('❌ File routes.txt tidak ditemukan!');
+                $this->command->error('File routes.txt tidak ditemukan');
             }
             return;
         }
@@ -56,7 +56,7 @@ class RouteSeeder extends Seeder
         $total = DB::table('tb_routes')->count();
         if ($this->command) {
             $this->command->newLine();
-            $this->command->info("✅ RouteSeeder selesai! Total: $total routes");
+            $this->command->info("RouteSeeder selesai, Total $total routes");
         }
     }
 }

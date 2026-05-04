@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\KoridorController;
 use App\Http\Controllers\Api\RuteController;
 use App\Http\Controllers\TransportasiController;
 use App\Http\Controllers\Api\PencarianLogApiController;
+use App\Http\Controllers\Api\GeocodingController;
 
 // Route untuk autocomplete halte
 Route::get('/halte/cari', [HalteController::class, 'cari']);
@@ -52,3 +53,7 @@ Route::get('/stops-by-trip/{tripId}', function ($tripId) {
 
     return response()->json(['stops' => $stops]);
 });
+
+// POI routes
+Route::get('/geocode', [GeocodingController::class, 'geocode']);
+Route::get('/nearest-stop', [GeocodingController::class, 'nearestStop']);
