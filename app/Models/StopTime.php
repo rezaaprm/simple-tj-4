@@ -11,7 +11,8 @@ class StopTime extends Model
     protected $fillable = [
         'trip_id',
         'stop_id',
-        'stop_sequence'
+        'stop_sequence',
+        'shape_dist_traveled',
     ];
 
     public function stop()

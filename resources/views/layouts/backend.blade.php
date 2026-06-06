@@ -21,8 +21,12 @@
             @include('layouts.partials_backend.navbar')
         </nav>
 
-        <aside class="main-sidebar sidebar-dark-primary elevation-4">
-            <a href="{{ route('admin.dashboard') }}" class="brand-link">
+        <aside class="main-sidebar user-panel sidebar-dark-primary elevation-4">
+            <a href="{{ route('admin.dashboard') }}" class="brand-link d-flex align-items-center">
+                <div class="image mr-3">
+                    <img src="{{ asset('image/logo_upnvj.png') }}" class="img-fluid" alt="">
+                </div>
+
                 <span class="brand-text font-weight-light">Transport Jakarta</span>
             </a>
             <div class="sidebar">

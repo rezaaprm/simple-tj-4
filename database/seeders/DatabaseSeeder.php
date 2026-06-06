@@ -43,6 +43,10 @@ class DatabaseSeeder extends Seeder
         if ($this->command) $this->command->info('7. Seeding POI');
         $this->call(PoiSeeder::class);
 
+        // 7. Seed Calendar (Hari / data kalender)
+        if ($this->command) $this->command->info('7. Seeding Calendar');
+        $this->call(CalendarSeeder::class);
+
         if ($this->command) {
             $this->command->line(str_repeat('=', 50));
             $this->command->info('SEMUA SEEDER SELESAI');

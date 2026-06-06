@@ -104,4 +104,46 @@ class PoiGeocodingService
     {
         Cache::forget('poi_search_*');
     }
+
+    /**
+     * Cari POI dengan informasi halte terdekat (1 request untuk semua POI)
+     */
+    public function geocodePoiWithNearestStop(string $query): ?array
+    {
+        if (strlen($query) > 50 || strpos($query, '→') !== false) {
+            return null;
+        }
+
+        $cacheKey = 'poi_with_nearest_' . md5($query);
+
+        return Cache::remember($cacheKey, 86400, function () use ($query) {
+            $pois = Poi::where('name', 'like', "%{$query}%")
+                ->orWhere('category', 'like', "%{$query}%")
+                ->limit(10)  // Batasi 10 POI
+                ->get();
+
+            if ($pois->isEmpty()) {
+                return [];
+            }
+
+            $results = [];
+            foreach ($pois as $poi) {
+                // Cari halte terdekat untuk setiap POI
+                $nearest = $this->findNearestStop($poi->lat, $poi->lng);
+
+                $results[] = [
+                    'name' => $poi->name,
+                    'lat' => (float) $poi->lat,
+                    'lng' => (float) $poi->lng,
+                    'category' => $poi->category,
+                    'nearest_stop' => $nearest ? [
+                        'name' => $nearest['stop']->stop_name,
+                        'distance_km' => $nearest['distance_km']
+                    ] : null
+                ];
+            }
+
+            return $results;
+        });
+    }
 }

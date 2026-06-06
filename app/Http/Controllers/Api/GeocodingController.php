@@ -26,7 +26,7 @@ class GeocodingController extends Controller
             return response()->json([]);
         }
 
-        $pois = $this->geocoder->geocodePoi($query);
+        $pois = $this->geocoder->geocodePoiWithNearestStop($query);
 
         return response()->json($pois ?? []);
     }

@@ -22,28 +22,65 @@ class GtfsCacheService
      */
     private function buildRoutesData()
     {
-        // 1. Ambil semua routes
+        // Memastikan Zona Waktu selalu selaras
+        // Saat tes hari secara manual komentar timezone, lalu juga bagian today dan todayDate
+        date_default_timezone_set('Asia/Jakarta');
+
+        // 1. Ambil semua rute
         $allRoutes = DB::table('tb_routes')->get();
 
-        // 2. Mapping route + direction ke shape_id
+        // 2. Mapping route + direction ke shape_id (Universal tanpa filter kalender)
         $routeDirections = DB::table('tb_trips')
             ->select('route_id', 'direction_id', 'shape_id')
             ->distinct()
             ->get();
 
         $routeToShape = [];
-        $routeToTrips = [];
-
         foreach ($routeDirections as $rd) {
             $direction = $rd->direction_id ?? '0';
             $key = $rd->route_id . '_' . $direction;
             $routeToShape[$key] = $rd->shape_id;
         }
 
-        // 3. Kumpulkan semua trip_id per kombinasi route+direction
-        $allTrips = DB::table('tb_trips')
-            ->select('route_id', 'direction_id', 'trip_id')
-            ->get();
+        // ============================================================
+        // 3. Ambil data trips berdasarkan filter kalender dinamis
+        // ============================================================
+        $useCalendarFilter = env('USE_CALENDAR_FILTER', false);
+        $routeToTrips = [];
+
+        if ($useCalendarFilter) {
+            $today = strtolower(date('l'));
+            $todayDate = date('Ymd');
+
+            // Tes untuk beda hari (senin sampai jumat), nyalakan bagian bawah, matikan timezone, today, todayDate
+            // $today = 'saturday';
+            // $todayDate = '20260523'; // Format YYYYMMDD
+
+            // Mengambil service_id yang valid & aktif pada hari ini
+            $activeServices = DB::table('tb_calendar')
+                ->where($today, '=', 1)
+                ->where('start_date', '<=', $todayDate)
+                ->where('end_date', '>=', $todayDate)
+                ->pluck('service_id')
+                ->toArray();
+
+            $allTrips = DB::table('tb_trips')
+                ->select('route_id', 'direction_id', 'trip_id', 'service_id')
+                ->whereIn('service_id', $activeServices)
+                ->get();
+
+            // Fallback Pengaman: Jika database calendar Anda belum lengkap/seeder bermasalah,
+            // jangan biarkan aplikasi mogok dan menghasilkan data kosong.
+            if ($allTrips->isEmpty()) {
+                $allTrips = DB::table('tb_trips')
+                    ->select('route_id', 'direction_id', 'trip_id')
+                    ->get();
+            }
+        } else {
+            $allTrips = DB::table('tb_trips')
+                ->select('route_id', 'direction_id', 'trip_id')
+                ->get();
+        }
 
         foreach ($allTrips as $trip) {
             $direction = $trip->direction_id ?? '0';
@@ -66,7 +103,7 @@ class GtfsCacheService
             ];
         }
 
-        // 5. Ambil semua stop times (urutan halte per trip)
+        // 5. Ambil semua stop times
         $stopTimes = DB::table('tb_stop_times')->get();
         $tripToStops = [];
         foreach ($stopTimes as $st) {
@@ -76,23 +113,28 @@ class GtfsCacheService
             ksort($tripToStops[$tripId]);
         }
 
-        // 6. Ambil semua shape points - DIURUTKAN!
+        // Mapping shape_dist_traveled per trip & sequence
+        $tripShapeDist = [];
+        foreach ($stopTimes as $st) {
+            if ($st->shape_dist_traveled !== null) {
+                $tripShapeDist[$st->trip_id][$st->stop_sequence] = (float) $st->shape_dist_traveled;
+            }
+        }
+
+        // 6. Ambil semua shape points (diurutkan)
         $shapes = DB::table('tb_shapes')
             ->orderBy('shape_id')
             ->orderBy('shape_pt_sequence')
             ->get();
-
         $shapePoints = [];
         foreach ($shapes as $shape) {
             if ($shape->shape_pt_lat == 0 || $shape->shape_pt_lon == 0) continue;
-
             $shapePoints[$shape->shape_id][$shape->shape_pt_sequence] = [
                 (float) $shape->shape_pt_lat,
                 (float) $shape->shape_pt_lon
             ];
         }
 
-        // Urutkan setiap shape berdasarkan sequence
         foreach ($shapePoints as $shapeId => $points) {
             ksort($shapePoints[$shapeId]);
             $shapePoints[$shapeId] = array_values($shapePoints[$shapeId]);
@@ -104,14 +146,88 @@ class GtfsCacheService
             foreach (['0', '1'] as $dir) {
                 $key = $route->route_id . '_' . $dir;
                 $shapeId = $routeToShape[$key] ?? null;
-
-                // Ambil stops untuk arah ini
                 $dirStops = [];
-                $sampleTrip = $routeToTrips[$key][0] ?? null;
-                if ($sampleTrip && isset($tripToStops[$sampleTrip])) {
-                    foreach ($tripToStops[$sampleTrip] as $stopId) {
+
+                // Evaluasi Trip berdasarkan ketersediaan kalender
+                if (isset($routeToTrips[$key]) && !empty($routeToTrips[$key])) {
+                    $allStopIds = [];
+                    $stopOrder = [];
+                    $stopShapeDist = []; // buat menyimpan shape_dist ke next stop
+
+                    foreach ($routeToTrips[$key] as $tripId) {
+                        if (isset($tripToStops[$tripId])) {
+                            $sequences = array_keys($tripToStops[$tripId]);
+                            for ($idx = 0; $idx < count($sequences) - 1; $idx++) {
+                                $seq = $sequences[$idx];
+                                $nextSeq = $sequences[$idx + 1];
+                                $stopId = $tripToStops[$tripId][$seq];
+                                $nextStopId = $tripToStops[$tripId][$nextSeq];
+
+                                $allStopIds[$stopId] = true;
+                                if (!isset($stopOrder[$stopId]) || $seq < $stopOrder[$stopId]) {
+                                    $stopOrder[$stopId] = $seq;
+                                }
+
+                                // Hitung jarak ke Next Stop (shape_dist_next - shape_dist_current)
+                                $currentDist = $tripShapeDist[$tripId][$seq] ?? 0;
+                                $nextDist = $tripShapeDist[$tripId][$nextSeq] ?? 0;
+                                $distToNext = $nextDist - $currentDist;
+
+                                if ($distToNext > 0) {
+                                    if (!isset($stopShapeDist[$stopId]) || $distToNext < $stopShapeDist[$stopId]) {
+                                        $stopShapeDist[$stopId] = $distToNext;
+                                    }
+                                }
+                            }
+                            // Handle stop terakhir (tidak punya next, pakai haversine nanti)
+                            $lastSeq = end($sequences);
+                            $lastStopId = $tripToStops[$tripId][$lastSeq];
+                            $allStopIds[$lastStopId] = true;
+                            if (!isset($stopOrder[$lastStopId]) || $lastSeq < $stopOrder[$lastStopId]) {
+                                $stopOrder[$lastStopId] = $lastSeq;
+                            }
+                        }
+                    }
+
+                    $sortedStopIds = array_keys($allStopIds);
+                    usort($sortedStopIds, function ($a, $b) use ($stopOrder) {
+                        return ($stopOrder[$a] ?? 99999) <=> ($stopOrder[$b] ?? 99999);
+                    });
+
+                    $prevStopId = null;
+                    foreach ($sortedStopIds as $stopId) {
                         if (isset($stopsData[$stopId])) {
-                            $dirStops[] = $stopsData[$stopId];
+                            $stopData = $stopsData[$stopId];
+                            // Tambah shape_dist ke next stop (jika ada)
+                            if ($prevStopId && isset($stopShapeDist[$prevStopId])) {
+                                $stopsData[$prevStopId]['shape_dist_to_next'] = $stopShapeDist[$prevStopId];
+                            }
+                            $dirStops[] = $stopData;
+                            $prevStopId = $stopId;
+                        }
+                    }
+                    // Handle last stop (tidak punya next)
+                    if ($prevStopId && isset($stopsData[$prevStopId])) {
+                        $stopsData[$prevStopId]['shape_dist_to_next'] = null;
+                    }
+                }
+
+                // Fallback hanya berlaku jika hari ini hari libur (Sabtu/Minggu)
+                $todayDay = strtolower(date('l')); // Mengambil nama hari (monday, tuesday, dll)
+                $isWeekend = ($todayDay === 'saturday' || $todayDay === 'sunday');
+
+                if (empty($dirStops) && $isWeekend) {
+                    // Ambil trip acak universal dari rute ini sebagai fallback halte khusus weekend
+                    $fallbackTrip = DB::table('tb_trips')
+                        ->where('route_id', $route->route_id)
+                        ->where('direction_id', $dir)
+                        ->first();
+
+                    if ($fallbackTrip && isset($tripToStops[$fallbackTrip->trip_id])) {
+                        foreach ($tripToStops[$fallbackTrip->trip_id] as $stopId) {
+                            if (isset($stopsData[$stopId])) {
+                                $dirStops[] = $stopsData[$stopId];
+                            }
                         }
                     }
                 }

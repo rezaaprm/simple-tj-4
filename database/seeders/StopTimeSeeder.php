@@ -22,7 +22,7 @@ class StopTimeSeeder extends Seeder
             return;
         }
 
-        // HAPUS BARIS INI!
+        // 
         // DB::table('tb_stop_times')->truncate();
 
         $csv = Reader::createFromPath($path, 'r');
@@ -36,6 +36,7 @@ class StopTimeSeeder extends Seeder
                 'trip_id' => $record['trip_id'],
                 'stop_id' => $record['stop_id'],
                 'stop_sequence' => $record['stop_sequence'],
+                'shape_dist_traveled' => $record['shape_dist_traveled'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

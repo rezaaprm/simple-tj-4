@@ -344,7 +344,7 @@
 
     // Handler untuk dropdown JSON
     if (jsonViewBtn && jsonTypeFilter) {
-        jsonViewBtn.addEventListener('click', function(e) {
+        jsonViewBtn.addEventListener('click', async function(e) {
             e.preventDefault();
             const selectedType = jsonTypeFilter.value;
             let url = '';
@@ -363,7 +363,6 @@
                     url = "{{ url('/api/json/warna') }}";
                     break;
                 case 'poi':
-                    // Cek apakah ada kategori yang dipilih
                     const selectedCategory = document.getElementById('poiCategoryFilter')?.value;
                     if (selectedCategory && selectedCategory !== 'semua') {
                         url = "{{ url('/api/json/poi/kategori') }}/" + selectedCategory;
@@ -375,7 +374,104 @@
                     url = "{{ url('/routes-json') }}";
             }
 
-            window.open(url, '_blank');
+            // 🔥 TAMPILKAN DI MODAL, BUKAN TAB BARU
+            try {
+                // Tampilkan loading
+                const jsonModal = document.getElementById('jsonPreviewModal');
+                const jsonContent = document.getElementById('jsonPreviewContent');
+
+                if (!jsonModal) {
+                    // Buat modal jika belum ada
+                    createJsonPreviewModal();
+                }
+
+                document.getElementById('jsonPreviewModal').style.display = 'block';
+                document.getElementById('jsonPreviewTitle').innerHTML = `📄 Preview JSON - ${selectedType.toUpperCase()}`;
+                document.getElementById('jsonPreviewContent').innerHTML = '<div class="text-center p-5"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Memuat data...</div>';
+
+                // Fetch data
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // Format JSON dengan highlight
+                const formattedJson = JSON.stringify(data, null, 2);
+                const highlightedJson = syntaxHighlightJson(formattedJson);
+
+                document.getElementById('jsonPreviewContent').innerHTML = `<pre class="json-pre">${highlightedJson}</pre>`;
+
+            } catch (error) {
+                document.getElementById('jsonPreviewContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Gagal memuat data: ${error.message}
+                </div>
+            `;
+            }
+        });
+    }
+
+    // Fungsi untuk membuat modal preview JSON
+    function createJsonPreviewModal() {
+        const modalHtml = `
+        <div id="jsonPreviewModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
+            <div style="background-color: white; margin: 3% auto; padding: 20px; border-radius: 8px; width: 85%; max-height: 85vh; overflow-y: auto; position: relative;">
+                <span id="closeJsonModal" style="position: absolute; right: 20px; top: 10px; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+                <h4 id="jsonPreviewTitle">📄 Preview JSON</h4>
+                <hr>
+                <div id="jsonPreviewContent" style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: monospace; font-size: 12px; max-height: 70vh; overflow-y: auto;">
+                    Loading...
+                </div>
+                <div class="mt-3 text-right">
+                    <button id="copyJsonBtn" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-copy"></i> Copy JSON
+                    </button>
+                    <button id="closeJsonModalBtn" class="btn btn-sm btn-primary">
+                        <i class="fas fa-times"></i> Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Event close modal
+        document.getElementById('closeJsonModal').onclick = function() {
+            document.getElementById('jsonPreviewModal').style.display = 'none';
+        };
+        document.getElementById('closeJsonModalBtn').onclick = function() {
+            document.getElementById('jsonPreviewModal').style.display = 'none';
+        };
+        document.getElementById('copyJsonBtn').onclick = function() {
+            const content = document.getElementById('jsonPreviewContent').innerText;
+            navigator.clipboard.writeText(content);
+            alert('JSON berhasil disalin ke clipboard!');
+        };
+
+        window.onclick = function(e) {
+            const modal = document.getElementById('jsonPreviewModal');
+            if (e.target == modal) {
+                modal.style.display = 'none';
+            }
+        };
+    }
+
+    // Fungsi untuk syntax highlight JSON
+    function syntaxHighlightJson(json) {
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+            let cls = 'json-number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'json-key';
+                } else {
+                    cls = 'json-string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'json-boolean';
+            } else if (/null/.test(match)) {
+                cls = 'json-null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
         });
     }
 
@@ -390,4 +486,40 @@
     }
 </script>
 @endpush
+
+@push('styles')
+<style>
+    /* Syntax Highlight untuk JSON Preview */
+    .json-pre {
+        background: #1e1e1e;
+        padding: 15px;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        margin: 0;
+    }
+
+    .json-key {
+        color: #9cdcfe;
+    }
+
+    .json-string {
+        color: #ce9178;
+    }
+
+    .json-number {
+        color: #b5cea8;
+    }
+
+    .json-boolean {
+        color: #569cd6;
+    }
+
+    .json-null {
+        color: #569cd6;
+    }
+</style>
+@endpush
+
 @endsection

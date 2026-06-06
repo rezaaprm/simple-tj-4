@@ -149,20 +149,30 @@
                     <div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">
                         <div id="koridor-list">
                             @foreach($routes as $route)
+                            @php
+                            $stopsCount = count($route['stops']);
+                            $isActive = $stopsCount > 0;
+                            @endphp
                             <div class="koridor-dropdown" data-route-id="{{ $route['id'] }}"
                                 data-short-name="Koridor {{ $route['short_name'] }}"
                                 data-long-name="{{ $route['long_name'] }}"
                                 data-stops="{{ json_encode(array_column($route['stops'], 'name')) }}">
 
-                                <div class="koridor-header" style="border-left-color: {{ $route['color'] }};" onclick="toggleDropdown(this)">
+                                <div class="koridor-header" style="border-left-color: {{ $isActive ? $route['color'] : '#ccc' }}; {{ !$isActive ? 'opacity: 0.8;' : '' }}" onclick="toggleDropdown(this)">
                                     <div class="koridor-info">
                                         <span class="koridor-name">Koridor {{ $route['short_name'] }}</span>
                                         <span class="koridor-desc">{{ $route['long_name'] }}</span>
+                                        @if(!$isActive)
+                                        <span class="badge badge-warning ml-2" style="background: #f39c12; color: #000;">
+                                            <i class="fas fa-calendar-times"></i> Libur hari ini
+                                        </span>
+                                        @endif
                                     </div>
                                     <span class="arrow">▼</span>
                                 </div>
 
                                 <div class="koridor-body">
+                                    @if($isActive)
                                     <ul class="halte-list">
                                         @foreach($route['stops'] as $stopIdx => $stop)
                                         <li class="halte-item" data-stop-name="{{ $stop['name'] }}" onclick="event.stopPropagation(); focusStop({{ $stop['lat'] }}, {{ $stop['lng'] }}, '{{ $stop['name'] }}')">
@@ -171,6 +181,13 @@
                                         </li>
                                         @endforeach
                                     </ul>
+                                    @else
+                                    <div class="alert alert-warning text-center p-3 m-2" style="background: #fff3cd; border-radius: 6px; border-left: 4px solid #f39c12;">
+                                        <i class="fas fa-info-circle text-warning"></i>
+                                        <strong>Koridor ini TIDAK BEROPERASI pada hari ini.</strong><br>
+                                        <small class="text-muted">Silakan cek kembali di akhir pekan.</small>
+                                    </div>
+                                    @endif
                                 </div>
                             </div>
                             @endforeach
@@ -691,7 +708,7 @@
 
         // Fungsi Render Sutocomplete
         async function renderAutocomplete(input, resultsDiv, isStart) {
-            // Cek Flag jika sedang select POI
+            // Cek Flag jika sedang Select POI
             if (selectingPoi) {
                 resultsDiv.style.display = 'none';
                 return;
@@ -703,7 +720,7 @@
                 return;
             }
 
-            // Bersihkan query dari teks "→ Naik di"
+            // Bersihkan Query dari teks "→ Naik di"
             const arrowIndex = query.indexOf('→');
             if (arrowIndex > -1) {
                 query = query.substring(0, arrowIndex).trim();
@@ -722,29 +739,38 @@
                 return;
             }
 
+            // Map tanpa async/await di dalam
             resultsDiv.innerHTML = items.map(item => {
                 if (item.type === 'stop') {
                     const stop = item.data;
                     return `
-                    <div class="list-group-item list-group-item-action autocomplete-item" onclick='selectStopRoute(${JSON.stringify(stop).replace(/'/g, "\\'")}, ${isStart})'>
-                        <div>
-                            <strong>${escapeHtml(stop.name)}</strong>
-                            <br><small>${escapeHtml(stop.routeName)}</small>
-                        </div>
+                <div class="list-group-item list-group-item-action autocomplete-item" onclick='selectStopRoute(${JSON.stringify(stop).replace(/'/g, "\\'")}, ${isStart})'>
+                    <div>
+                        <strong>${escapeHtml(stop.name)}</strong>
+                        <br><small>${escapeHtml(stop.routeName)}</small>
                     </div>
-                `;
+                </div>
+            `;
                 } else {
                     const poi = item.data;
+
+                    // Data sudah termasuk nearest_stop dari backend
+                    let displayName = poi.name;
+                    if (poi.nearest_stop && poi.nearest_stop.name) {
+                        displayName = `${poi.name} - ${poi.nearest_stop.name} (${poi.nearest_stop.distance_km} km)`;
+                    }
+
                     return `
-                    <div class="list-group-item list-group-item-action autocomplete-item" onclick='selectPoi(${JSON.stringify(poi).replace(/'/g, "\\'")}, ${isStart})'>
-                        <div>
-                            <strong>📍 ${escapeHtml(poi.name)}</strong>
-                            <br><small>${escapeHtml(poi.category)}</small>
-                        </div>
+                <div class="list-group-item list-group-item-action autocomplete-item" onclick='selectPoi(${JSON.stringify(poi).replace(/'/g, "\\'")}, ${isStart})'>
+                    <div>
+                        <strong>📍 ${escapeHtml(displayName)}</strong>
+                        <br><small>${escapeHtml(poi.category)}</small>
                     </div>
-                `;
+                </div>
+            `;
                 }
             }).join('');
+
             resultsDiv.style.display = 'block';
         }
 
@@ -1078,7 +1104,18 @@
                 for (let i = 0; i < route.stops.length - 1; i++) {
                     const a = route.stops[i],
                         b = route.stops[i + 1];
+
+                    // ========== VERSI B (SHAPE_DIST_TRAVELED) - AKTIF ==========
+                    // let jarak = a.shape_dist_to_next;
+
+                    // ========== VERSI A (HAVERSINE) - FALLBACK jika shape_dist tidak ada ==========
+                    // if (!jarak || jarak <= 0) {
+                    //     jarak = haversineDistance(a.lat, a.lng, b.lat, b.lng);
+                    // }
+
+                    // ==========  VERSI A (TANPA FALLBACK) ==========
                     const jarak = haversineDistance(a.lat, a.lng, b.lat, b.lng);
+
                     if (graph[a.id] && graph[b.id]) graph[a.id].connections.push({
                         stopId: b.id,
                         routeId: route.id,
@@ -1142,32 +1179,32 @@
                 let weight = conn.distance;
                 const last = prevInfo[current];
 
-                // ========== Preferensi berdasarkan parameter ==========
+                // ========== PREFERENSI BERDASARKAN PARAMETER ==========
                 if (preference === 'transfer') {
-                    // Preferensi 2: Prioritas minim transfer (Cari 2)
-                    // Penalti transfer lebih kecil, bobot bus lebih kecil
+                    // ========== CARI 2: PRIORITAS MINIM TRANSFER ==========
 
+                    // 1. Penalti transfer BESAR (6000m) agar malas pindah koridor
                     if (last && last.routeId !== null && last.routeId !== conn.routeId && conn.type === 'bus') {
-                        weight += TRANSFER_PENALTY / 2; // Penalti transfer dikurangi 50%
+                        weight += 50000; // Ubah di sini untuk pengecekan keefektifan
                     }
 
+                    // 2. Bobot bus dasar
                     if (conn.type === 'bus') {
-                        weight += 400; // Bobot bus dikurangi (lebih memilih bus)
-                        if (conn.distance > 4000) weight += 50000; // Penalti bus jauh dikurangi
+                        weight += 600;
+                        if (conn.distance > 4000) weight += 60000;
                     }
 
+                    // 3. Jalan kaki (tetap besar, prioritas naik bus)
                     if (conn.type === 'walk') {
-                        // Jalan kaki diberi penalti lebih besar (prioritas naik bus)
                         const walkMult = conn.distance < 100 ? 10 : 100;
                         weight = conn.distance * walkMult;
                     }
 
                 } else {
-                    // Preferensi 1: Prioritas jarak terpendek (Cari 1) / default
-                    // Penalti transfer normal, bobot bus normal
+                    // ========== CARI 1: PRIORITAS JARAK TERPENDEK ==========
 
                     if (last && last.routeId !== null && last.routeId !== conn.routeId && conn.type === 'bus') {
-                        weight += TRANSFER_PENALTY; // Penalti transfer normal
+                        weight += TRANSFER_PENALTY; // Penalti transfer normal (2500m)
                     }
 
                     if (conn.type === 'bus') {
@@ -1181,7 +1218,15 @@
                         weight = conn.distance * walkMult;
                     }
                 }
-                // ========== End Preferensi ==========
+
+                // ========== Tetap di Koridor yang sama ==========
+                // Jika naik bus yang sama dengan halte sebelumnya, beri diskon 800 meter
+                // Ini membuat algoritma "betah" di koridor yang sama (lebih manusiawi)
+                if (last && last.routeId !== null && last.routeId === conn.routeId && conn.type === 'bus') {
+                    weight -= 800;
+                }
+                //
+
                 const newDist = distances[current] + weight;
                 if (newDist < distances[conn.stopId]) {
                     distances[conn.stopId] = newDist;
@@ -1595,9 +1640,9 @@
         if (startWalkingInfo && startWalkingInfo.fromPoi && selectedStartStop && selectedStartStop.isPoi) {
             const startPoiMarker = L.marker([selectedStartStop.lat, selectedStartStop.lng], {
                 icon: L.divIcon({
-                    html: `<div style="background: #e67e22; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px #e67e22; display: flex; align-items: center; justify-content: center; font-size: 16px;">📍</div>`,
-                    iconSize: [36, 36],
-                    iconAnchor: [18, 18]
+                    html: `<div style="background: #e67e22; width: 40px; height: 40px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 15px #e67e22; display: flex; align-items: center; justify-content: center; font-size: 20px;">📍</div>`,
+                    iconSize: [48, 48],
+                    iconAnchor: [24, 24]
                 })
             }).bindPopup(`<b>📍 ${startWalkingInfo.fromPoi}</b><br>🚶 Jalan kaki ke ${startWalkingInfo.toStop}<br>📏 ${startWalkingInfo.distanceKm} km`).addTo(map);
             window.poiMarkers.push(startPoiMarker);
@@ -1607,9 +1652,9 @@
         if (endWalkingInfo && endWalkingInfo.toPoi && selectedEndStop && selectedEndStop.isPoi) {
             const endPoiMarker = L.marker([selectedEndStop.lat, selectedEndStop.lng], {
                 icon: L.divIcon({
-                    html: `<div style="background: #e74c3c; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px #e74c3c; display: flex; align-items: center; justify-content: center; font-size: 16px;">🏁</div>`,
-                    iconSize: [36, 36],
-                    iconAnchor: [18, 18]
+                    html: `<div style="background: #e74c3c; width: 40px; height: 40px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 15px #e74c3c; display: flex; align-items: center; justify-content: center; font-size: 20px;">🏁</div>`,
+                    iconSize: [48, 48],
+                    iconAnchor: [24, 24]
                 })
             }).bindPopup(`<b>🏁 ${endWalkingInfo.toPoi}</b><br>🚶 Turun di ${endWalkingInfo.fromStop}<br>📏 ${endWalkingInfo.distanceKm} km`).addTo(map);
             window.poiMarkers.push(endPoiMarker);
@@ -1667,7 +1712,8 @@
             routeLayers_temp.routeLine = L.polyline(points, {
                 color: '#f39c12',
                 weight: 5,
-                opacity: 0.8
+                opacity: 0.8,
+                dashArray: '5, 10' // putus-putus
             }).addTo(map);
         }
 
@@ -1742,6 +1788,13 @@
         currentRouteMarkers.forEach(m => m.remove?.());
         routeLayers_temp = {};
         currentRouteMarkers = [];
+
+        // Hhapus marker POI)
+        if (window.poiMarkers) {
+            window.poiMarkers.forEach(m => m.remove?.());
+            window.poiMarkers = [];
+        }
+
         document.getElementById('routeBtn1').disabled = true;
         document.getElementById('routeBtn2').disabled = true;
         document.getElementById('clearBtn').disabled = true;

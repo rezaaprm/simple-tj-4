@@ -55,7 +55,7 @@ class PoiSeeder extends Seeder
             if (count($data) >= $batchSize) {
                 Poi::insert($data);
                 $data = [];
-                $this->command->info("Imported {$count} records...");
+                $this->command->info("Imported {$count} records.");
             }
         }
 
@@ -68,6 +68,6 @@ class PoiSeeder extends Seeder
 
         $total = Poi::count();
         $this->command->newLine();
-        $this->command->info("SELESAI! Total {$total} POI diimport.");
+        $this->command->info("POI Seeder selesai, Total {$total} POI diimport.");
     }
 }
