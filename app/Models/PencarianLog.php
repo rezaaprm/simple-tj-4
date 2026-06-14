@@ -10,6 +10,7 @@ class PencarianLog extends Model
     protected $table = 'tb_pencarian_log';
 
     protected $fillable = [
+        'user_id',
         'id_halte_awal',
         'id_halte_tujuan',
         'waktu_eksekusi_ms',
@@ -28,6 +29,11 @@ class PencarianLog extends Model
     protected $casts = [
         'bobot_preferensi' => 'array'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(Users::class, 'user_id', 'id_users');
+    }
 
     public function halteAwal(): BelongsTo
     {

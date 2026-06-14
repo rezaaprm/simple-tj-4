@@ -18,6 +18,7 @@
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>Pencari</th>
                             <th>Halte Awal</th>
                             <th>Halte Tujuan</th>
                             <th>Waktu (ms)</th>
@@ -38,6 +39,17 @@
                                     style="text-decoration: none; cursor: pointer;">
                                     {{ ($logs->currentPage() - 1) * $logs->perPage() + $index + 1 }}
                                 </a>
+                            </td>
+                            <td>
+                                @if($log->user_id)
+                                @if($log->user->role === 'admin')
+                                Admin ({{ $log->user->nama }})
+                                @else
+                                {{ $log->user->nama }}
+                                @endif
+                                @else
+                                Guest
+                                @endif
                             </td>
                             <td>{{ $log->halteAwal->stop_name ?? 'Unknown' }}</td> {{-- stop_name, bukan nama_halte --}}
                             <td>{{ $log->halteTujuan->stop_name ?? 'Unknown' }}</td> {{-- stop_name, bukan nama_halte --}}

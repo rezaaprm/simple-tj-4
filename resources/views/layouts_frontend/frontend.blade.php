@@ -246,20 +246,63 @@
         <div class="row gx-0">
             <div class="col-lg-8 text-center text-lg-start mb-2 mb-lg-0">
                 <div class="d-inline-flex align-items-center" style="height: 45px;">
-                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-2" href="#"><i class="fab fa-twitter fw-normal"></i></a>
-                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-2" href="#"><i class="fab fa-facebook-f fw-normal"></i></a>
-                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-2" href="#"><i class="fab fa-linkedin-in fw-normal"></i></a>
-                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-2" href="#"><i class="fab fa-instagram fw-normal"></i></a>
-                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle" href="#"><i class="fab fa-youtube fw-normal"></i></a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://www.linkedin.com/company/pt.-transportasi-jakarta-transjakarta-/?originalSubdomain=id" target="_blank" rel="noopener noreferrer" title="LinkedIn TransJakarta">
+                        <i class="fab fa-linkedin-in fw-normal"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://www.facebook.com/Transjakarta/?locale=id_ID" target="_blank" rel="noopener noreferrer" title="Facebook TransJakarta">
+                        <i class="fab fa-facebook-f fw-normal"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://x.com/PT_Transjakarta" target="_blank" rel="noopener noreferrer" title="X (Twitter) TransJakarta">
+                        <i class="fab fa-twitter fw-normal"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://www.instagram.com/pt_transjakarta/" target="_blank" rel="noopener noreferrer" title="Instagram TransJakarta">
+                        <i class="fab fa-instagram fw-normal"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://www.tiktok.com/@pt_transjakarta" target="_blank" rel="noopener noreferrer" title="TikTok TransJakarta">
+                        <i class="fab fa-tiktok fw-normal"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://transjakarta.co.id" target="_blank" rel="noopener noreferrer" title="Situs Resmi Transjakarta">
+                        <i class="fas fa-globe"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://ppid.transjakarta.co.id" target="_blank" rel="noopener noreferrer" title="Portal Informasi Publik Transjakarta">
+                        <i class="fas fa-file-alt"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://karier.transjakarta.co.id" target="_blank" rel="noopener noreferrer" title="Karir Transjakarta">
+                        <i class="fas fa-briefcase"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle me-3" href="https://layanankhusus.transjakarta.co.id" target="_blank" rel="noopener noreferrer" title="Layanan Khusus Transjakarta">
+                        <i class="fas fa-concierge-bell"></i>
+                    </a>
+                    <a class="btn btn-sm btn-outline-light btn-sm-square rounded-circle" href="https://klg.transjakarta.co.id" target="_blank" rel="noopener noreferrer" title="Kartu Layanan Gratis Transjakarta">
+                        <i class="fas fa-id-card"></i>
+                    </a>
                 </div>
             </div>
             <div class="col-lg-4 text-center text-lg-end">
                 <div class="d-inline-flex align-items-center" style="height: 45px;">
                     <div class="dropdown">
-                        <a href="#" class="dropdown-toggle text-light" data-bs-toggle="dropdown"><small><i class="fa fa-home me-2"></i> My Dashboard</small></a>
+                        <a href="#" class="dropdown-toggle text-light" data-bs-toggle="dropdown">
+                            <small><i class="fa fa-home me-2"></i> My Dashboard</small>
+                        </a>
                         <div class="dropdown-menu rounded">
-                            <a href="{{ url('/admin/dashboard') }}" class="dropdown-item"><i class="fas fa-tachometer-alt me-2"></i> Admin Dashboard</a>
-                            <a href="#" class="dropdown-item" data-scroll-to="kontak">
+                            @if(Auth::guard('admin')->check())
+                            <a class="dropdown-item" href="{{ route('admin.dashboard') }}">
+                                <i class="fas fa-tachometer-alt me-2"></i> Dashboard Admin
+                            </a>
+                            @elseif(Auth::guard('users')->check())
+                            <a class="dropdown-item" href="{{ route('user.dashboard') }}">
+                                <i class="fas fa-tachometer-alt me-2"></i> Dashboard User
+                            </a>
+                            @else
+                            <a class="dropdown-item" href="{{ route('login') }}">
+                                <i class="fas fa-sign-in-alt me-2"></i> Login
+                            </a>
+                            <a class="dropdown-item" href="{{ route('register') }}">
+                                <i class="fas fa-user-plus me-2"></i> Register
+                            </a>
+                            @endif
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#" data-scroll-to="kontak">
                                 <i class="fas fa-user-alt me-2"></i> End Profile
                             </a>
                         </div>
@@ -273,7 +316,7 @@
     <!-- Navbar & Hero Start -->
     <div class="container-fluid position-relative p-0">
         <nav class="navbar navbar-expand-lg navbar-light px-4 px-lg-5 py-3 py-lg-0">
-            <a href="{{ url('/frontend') }}" class="navbar-brand p-0">
+            <a href="{{ url('/explore') }}" class="navbar-brand p-0">
                 <h1 class="m-0"><i class="fa fa-map-marker-alt me-3"></i>TransJakarta</h1>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
@@ -281,7 +324,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <div class="navbar-nav ms-auto py-0">
-                    <a href="{{ url('/frontend') }}" class="nav-item nav-link active">Home</a>
+                    <a href="{{ url('/explore') }}" class="nav-item nav-link active">Home</a>
                     <a href="#about" class="nav-item nav-link">About</a>
                     <a href="#statistik" class="nav-item nav-link">Informasi & Statistik</a>
                     <a href="#destinasi" class="nav-item nav-link">Objek Wisata</a>
@@ -290,8 +333,7 @@
                 </div>
                 <!-- projek 4 (sekarang) -->
                 <!-- <a href="{{ route('admin.transjakarta.map') }}" target="_blank" class="btn btn-primary rounded-pill py-2 px-4 ms-lg-4">Rute Transjakarta</a> -->
-                <a href="{{ route('admin.transjakarta.map') }}" class="btn btn-primary rounded-pill py-2 px-4 ms-lg-4">Rute Transjakarta</a>
-
+                <a href="{{ route('public.map') }}" class="btn btn-primary rounded-pill py-2 px-4 ms-lg-4">Rute Transjakarta</a>
                 <!-- versi projek 5 -->
                 <!-- <a href="{{-- url('/peta-v2') --}}" target="_blank" class="btn btn-primary rounded-pill py-2 px-4 ms-lg-4">Rute Transjakarta</a> -->
             </div>
@@ -366,18 +408,8 @@
                     class="btn btn-light rounded-pill py-2 px-4"
                     style="font-weight: 600; color: #13357B;">
                     <i class="fas fa-tachometer-alt me-2"></i>
-                    Dashboard Admin
+                    Dashboard Utama
                 </a>
-
-                <!-- Pemisah -->
-
-                <!-- <div class="rounded-pill py-3 px-4"
-                    style="background: rgba(255,255,255,0.9);">
-                    <span style="color: #1a2b4e; font-weight: 500; letter-spacing: 0.3px;">
-                        Cari tempat wisata
-                    </span>
-                </div> -->
-
             </div>
         </div>
     </div>

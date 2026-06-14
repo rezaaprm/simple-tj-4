@@ -90,8 +90,11 @@
                             <!-- <a href="{{ url('/frontend') }}" class="btn btn-sm btn-success" target="_blank">
                                 <i class="fas fa-globe"></i> Lihat Profile
                             </a> -->
-                            <a href="{{ url('/') }}" class="btn btn-sm btn-success">
+                            <!-- <a href="{{ url('/') }}" class="btn btn-sm btn-success">
                                 <i class="fas fa-globe"></i> Lihat Profile
+                            </a> -->
+                            <a href="{{ route('frontend.explore') }}" class="btn btn-sm btn-success">
+                                <i class="fas fa-globe"></i> Lihat Frontend
                             </a>
                         </td>
                     </tr>
@@ -374,7 +377,7 @@
                     url = "{{ url('/routes-json') }}";
             }
 
-            // 🔥 TAMPILKAN DI MODAL, BUKAN TAB BARU
+            // Modal
             try {
                 // Tampilkan loading
                 const jsonModal = document.getElementById('jsonPreviewModal');

@@ -16,18 +16,10 @@ class PencarianRuteService
         $this->navigasiService = $navigasiService;
     }
 
-    /**
-     * Cari rute optimal antara dua halte
-     * 
-     * @param Stop $asal
-     * @param Stop $tujuan
-     * @return array
-     */
     public function cariRuteOptimal(Stop $asal, Stop $tujuan): array
     {
         $waktuMulai = microtime(true);
 
-        // Validasi input
         if (!$asal || !$tujuan) {
             Log::warning('Halte tidak ditemukan');
             return $this->emptyResult();
@@ -38,7 +30,6 @@ class PencarianRuteService
             'ke' => $tujuan->stop_name . ' (ID: ' . $tujuan->stop_id . ')'
         ]);
 
-        // Panggil NavigasiService untuk mencari rute
         $jalurId = $this->navigasiService->cariRuteTercepat($asal->stop_id, $tujuan->stop_id);
 
         if (empty($jalurId)) {
@@ -46,21 +37,20 @@ class PencarianRuteService
             return $this->emptyResult();
         }
 
-        // Rekonstruksi rute (ambil detail halte)
-        $rute = $this->rekonstruksiRute($jalurId);
+        // Data Stops sekali diambil
+        $stops = Stop::whereIn('stop_id', $jalurId)->get()->keyBy('stop_id');
 
-        // Hitung total jarak
-        $totalJarak = $this->hitungTotalJarak($jalurId);
+        $rute = $this->rekonstruksiRuteFromStops($jalurId, $stops);
+        $totalJarak = $this->hitungTotalJarakFromStops($jalurId, $stops);
 
-        // Simpan log
         $this->simpanLog([
             'id_halte_awal' => $asal->stop_id,
             'id_halte_tujuan' => $tujuan->stop_id,
             'waktu_eksekusi_ms' => (microtime(true) - $waktuMulai) * 1000,
             'node_dikunjungi' => count($jalurId),
             'total_jarak' => $totalJarak,
-            'total_waktu' => $totalJarak / 8.33 * 3.6, // estimasi 30 km/jam
-            'total_pindah' => 0,
+            'total_waktu' => $totalJarak / 8.33 * 3.6,
+            'total_pindah' => 0, // TODO: hitung pindah koridor jika diperlukan
             'algoritma' => 'Dijkstra',
         ]);
 
@@ -68,7 +58,7 @@ class PencarianRuteService
             'rute' => $rute,
             'ringkasan' => [
                 'total_halte' => $rute->count(),
-                'total_waktu' => $totalJarak / 8.33 * 3.6, // detik
+                'total_waktu' => $totalJarak / 8.33 * 3.6,
                 'total_waktu_menit' => round(($totalJarak / 8.33 * 3.6) / 60, 1),
                 'total_pindah' => 0,
                 'total_jarak' => $totalJarak,
@@ -77,19 +67,8 @@ class PencarianRuteService
         ];
     }
 
-    /**
-     * Rekonstruksi rute dari array ID halte
-     */
-    private function rekonstruksiRute(array $jalurId): Collection
+    private function rekonstruksiRuteFromStops(array $jalurId, Collection $stops): Collection
     {
-        if (empty($jalurId)) {
-            return collect([]);
-        }
-
-        $stops = Stop::whereIn('stop_id', $jalurId)
-            ->get()
-            ->keyBy('stop_id');
-
         $rute = collect();
         foreach ($jalurId as $index => $id) {
             if (isset($stops[$id])) {
@@ -103,29 +82,16 @@ class PencarianRuteService
                 ]);
             }
         }
-
         return $rute;
     }
 
-    /**
-     * Hitung total jarak dari jalur
-     */
-    private function hitungTotalJarak(array $jalurId): float
+    private function hitungTotalJarakFromStops(array $jalurId, Collection $stops): float
     {
-        if (count($jalurId) < 2) {
-            return 0;
-        }
-
-        // Ambil koordinat semua halte
-        $stops = Stop::whereIn('stop_id', $jalurId)
-            ->get()
-            ->keyBy('stop_id');
-
+        if (count($jalurId) < 2) return 0;
         $total = 0;
         for ($i = 0; $i < count($jalurId) - 1; $i++) {
             $dari = $stops[$jalurId[$i]] ?? null;
             $ke = $stops[$jalurId[$i + 1]] ?? null;
-
             if ($dari && $ke) {
                 $total += $this->navigasiService->hitungJarak(
                     $dari->stop_lat,
@@ -135,13 +101,9 @@ class PencarianRuteService
                 );
             }
         }
-
         return $total;
     }
 
-    /**
-     * Return empty result
-     */
     private function emptyResult(): array
     {
         return [
@@ -157,9 +119,6 @@ class PencarianRuteService
         ];
     }
 
-    /**
-     * Simpan log pencarian
-     */
     private function simpanLog(array $data): void
     {
         try {
@@ -169,9 +128,6 @@ class PencarianRuteService
         }
     }
 
-    /**
-     * Hapus cache
-     */
     public function clearCache()
     {
         $this->navigasiService->clearCache();

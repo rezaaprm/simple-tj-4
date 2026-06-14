@@ -102,7 +102,19 @@ class PoiGeocodingService
      */
     public function clearCache()
     {
-        Cache::forget('poi_search_*');
+        // Untuk database cache driver
+        try {
+            $keys = \Illuminate\Support\Facades\DB::table('cache')
+                ->where('key', 'like', 'poi_search_%')
+                ->orWhere('key', 'like', 'poi_with_nearest_%')
+                ->pluck('key');
+            foreach ($keys as $key) {
+                Cache::forget($key);
+            }
+        } catch (\Exception $e) {
+            // Fallback: flush semua cache (tidak disarankan, tapi untuk sementara)
+            Cache::flush();
+        }
     }
 
     /**

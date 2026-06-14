@@ -27,7 +27,24 @@ class PencarianLogApiController extends Controller
                 'walking_info_json' => 'nullable|string',
             ]);
 
+            // Ambil user_id dari guard yang sedang login (jika ada)
+            $userId = null;
+            if (auth()->guard('users')->check()) {
+                $userId = auth()->guard('users')->id();
+            } elseif (auth()->guard('admin')->check()) {
+                $userId = auth()->guard('admin')->id();
+            } else {
+                if (auth()->check()) {
+                    $user = auth()->user();
+                    if ($user && $user->role === 'users') {
+                        $userId = $user->id_users ?? $user->id;
+                    }
+                }
+            }
+            \Illuminate\Support\Facades\Log::info('Saving log with user_id: ' . ($userId ?? 'NULL'));
+
             $log = PencarianLog::create([
+                'user_id' => $userId,
                 'id_halte_awal' => $validated['id_halte_awal'],
                 'id_halte_tujuan' => $validated['id_halte_tujuan'],
                 'waktu_eksekusi_ms' => $validated['waktu_eksekusi_ms'],

@@ -6,15 +6,25 @@ use App\Http\Controllers\Controller;
 use App\Models\PencarianLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Auth;
 
 class PencarianLogController extends Controller
 {
     public function index()
     {
         try {
-            $logs = PencarianLog::with(['halteAwal', 'halteTujuan'])
-                ->orderBy('created_at', 'asc') // Ubah 'desc' atau 'asc'
-                ->paginate(20);
+            if (Auth::guard('admin')->check()) {
+                $logs = PencarianLog::with(['halteAwal', 'halteTujuan'])
+                    ->orderBy('created_at', 'asc')
+                    ->paginate(20);
+            } elseif (Auth::guard('users')->check()) {
+                $logs = PencarianLog::with(['halteAwal', 'halteTujuan'])
+                    ->where('user_id', Auth::guard('users')->id())
+                    ->orderBy('created_at', 'asc')
+                    ->paginate(20);
+            } else {
+                $logs = collect([]);
+            }
         } catch (\Exception $e) {
             $logs = collect([]);
         }
@@ -25,9 +35,21 @@ class PencarianLogController extends Controller
     public function data(Request $request)
     {
         try {
-            $logs = PencarianLog::with(['halteAwal', 'halteTujuan'])
-                ->orderBy('created_at', 'desc')
-                ->paginate(20);
+            if (Auth::guard('admin')->check()) {
+                $logs = PencarianLog::with(['halteAwal', 'halteTujuan', 'user'])
+                    ->orderBy('created_at', 'asc')
+                    ->paginate(20);
+            } else {
+                $userId = Auth::guard('users')->id();
+                if ($userId) {
+                    $logs = PencarianLog::with(['halteAwal', 'halteTujuan'])
+                        ->where('user_id', $userId)
+                        ->orderBy('created_at', 'asc')
+                        ->paginate(20);
+                } else {
+                    $logs = collect([]);
+                }
+            }
             return response()->json($logs);
         } catch (\Exception $e) {
             return response()->json(['data' => [], 'message' => 'Tabel log belum tersedia']);
