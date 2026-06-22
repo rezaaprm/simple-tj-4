@@ -100,9 +100,7 @@ class InfoStatistikController extends Controller
     {
         $data = InfoStatistik::findOrFail($id);
 
-        $data->update([
-            'deleted_at' => now(),
-        ]);
+        $data->delete();
 
         return redirect()->route('info_statistik.index')->with('success', 'Data Berhasil Dihapus');
     }

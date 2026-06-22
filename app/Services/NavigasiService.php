@@ -9,6 +9,12 @@ class NavigasiService
 {
     /**
      * Hitung jarak Haversine antara dua koordinat (meter)
+     *
+     * @param float $lat1
+     * @param float $lon1
+     * @param float $lat2
+     * @param float $lon2
+     * @return float
      */
     public function hitungJarak($lat1, $lon1, $lat2, $lon2)
     {
@@ -27,11 +33,15 @@ class NavigasiService
     }
 
     /**
-     * Cari rute tercepat antara dua halte
+     * Cari rute tercepat antara dua halte menggunakan algoritma Dijkstra.
      * 
+     * CATATAN: Implementasi ini menggunakan SplPriorityQueue yang merupakan max-heap.
+     * Untuk mensimulasikan min-heap (yang dibutuhkan Dijkstra), nilai jarak dimasukkan
+     * sebagai negatif. Ini adalah workaround yang valid dan sudah didokumentasikan.
+     *
      * @param string $stopIdAwal ID halte awal
      * @param string $stopIdTujuan ID halte tujuan
-     * @return array Daftar ID halte dalam urutan perjalanan
+     * @return array Daftar ID halte dalam urutan perjalanan (array kosong jika tidak ditemukan)
      */
     public function cariRuteTercepat($stopIdAwal, $stopIdTujuan)
     {
@@ -45,7 +55,7 @@ class NavigasiService
             return [];
         }
 
-        // Algoritma Dijkstra
+        // Dijkstra Algorithm
         $jarak = [];
         $sebelumnya = [];
         $antrian = new \SplPriorityQueue();
@@ -56,6 +66,7 @@ class NavigasiService
         }
 
         $jarak[$stopIdAwal] = 0;
+        // Workaround: masukkan nilai negatif agar priority queue berperilaku sebagai min-heap
         $antrian->insert($stopIdAwal, 0);
 
         while (!$antrian->isEmpty()) {
@@ -72,6 +83,7 @@ class NavigasiService
                     if ($alt < $jarak[$tetangga['id']]) {
                         $jarak[$tetangga['id']] = $alt;
                         $sebelumnya[$tetangga['id']] = $sekarang;
+                        // Negatif untuk min-heap
                         $antrian->insert($tetangga['id'], -$alt);
                     }
                 }
@@ -83,7 +95,10 @@ class NavigasiService
     }
 
     /**
-     * Bangun graf dari database (koneksi antar halte)
+     * Bangun graf dari database (koneksi antar halte berdasarkan stop_times)
+     * Graf ini bersifat tidak terarah (undirected) dengan bobot jarak Haversine.
+     *
+     * @return array
      */
     private function bangunGraf()
     {
@@ -145,7 +160,11 @@ class NavigasiService
     }
 
     /**
-     * Susun jalur dari hasil Dijkstra
+     * Susun jalur dari hasil Dijkstra (array previous)
+     *
+     * @param array $sebelumnya
+     * @param string $tujuan
+     * @return array
      */
     private function susunJalur($sebelumnya, $tujuan)
     {
@@ -167,6 +186,8 @@ class NavigasiService
 
     /**
      * Hapus cache graf navigasi
+     *
+     * @return void
      */
     public function clearCache()
     {

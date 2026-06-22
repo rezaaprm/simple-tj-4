@@ -11,10 +11,12 @@ class PoiGeocodingService
 {
     /**
      * Cari POI dari DATABASE
+     *
+     * @param string $query
+     * @return array|null
      */
     public function geocodePoi(string $query): ?array
     {
-        // Skip jika query terlalu panjang atau mengandung karakter aneh
         if (strlen($query) > 50 || strpos($query, '→') !== false) {
             return null;
         }
@@ -44,14 +46,33 @@ class PoiGeocodingService
     }
 
     /**
-     * Cari halte terdekat dengan radius bertahap
+     * Cari halte terdekat dengan radius bertahap (2km, 5km, 10km)
+     * OPTIMASI: Menggunakan bounding box terlebih dahulu untuk mempersempit pencarian.
+     *
+     * @param float $lat
+     * @param float $lng
+     * @param float $radiusMeters Radius awal (default 2000 = 2km)
+     * @return array|null Berisi 'stop', 'distance', 'distance_km'
      */
     public function findNearestStop(float $lat, float $lng, float $radiusMeters = 2000): ?array
     {
-        // Gunakan query SQL dengan radius bertahap
         $radii = [2000, 5000, 10000]; // 2km, 5km, 10km
+        // Jika parameter radius berbeda, tetap pakai nilai parameter
+        $firstRadius = $radiusMeters;
+        if (!in_array($firstRadius, $radii)) {
+            array_unshift($radii, $firstRadius);
+            $radii = array_unique($radii);
+            sort($radii);
+        }
 
         foreach ($radii as $radius) {
+            // Hitung bounding box (1 derajat ≈ 111 km)
+            $delta = $radius / 111000;
+            $minLat = $lat - $delta;
+            $maxLat = $lat + $delta;
+            $minLng = $lng - $delta;
+            $maxLng = $lng + $delta;
+
             $nearestStop = DB::select("
                 SELECT *, 
                     (6371 * acos(
@@ -60,10 +81,12 @@ class PoiGeocodingService
                         sin(radians(?)) * sin(radians(stop_lat))
                     )) as distance_km
                 FROM tb_stops
+                WHERE stop_lat BETWEEN ? AND ?
+                  AND stop_lon BETWEEN ? AND ?
                 HAVING distance_km <= ?
                 ORDER BY distance_km ASC
                 LIMIT 1
-            ", [$lat, $lng, $lat, $radius / 1000]);
+            ", [$lat, $lng, $lat, $minLat, $maxLat, $minLng, $maxLng, $radius / 1000]);
 
             if (!empty($nearestStop)) {
                 $stop = $nearestStop[0];
@@ -79,9 +102,14 @@ class PoiGeocodingService
         return null;
     }
 
-
     /**
-     * Hitung jarak Haversine (meter)
+     * Hitung jarak Haversine (meter) – digunakan untuk fallback jika diperlukan
+     *
+     * @param float $lat1
+     * @param float $lon1
+     * @param float $lat2
+     * @param float $lon2
+     * @return float
      */
     private function haversineDistance($lat1, $lon1, $lat2, $lon2)
     {
@@ -98,13 +126,14 @@ class PoiGeocodingService
     }
 
     /**
-     * Hapus cache
+     * Hapus cache yang berkaitan dengan POI
+     *
+     * @return void
      */
     public function clearCache()
     {
-        // Untuk database cache driver
         try {
-            $keys = \Illuminate\Support\Facades\DB::table('cache')
+            $keys = DB::table('cache')
                 ->where('key', 'like', 'poi_search_%')
                 ->orWhere('key', 'like', 'poi_with_nearest_%')
                 ->pluck('key');
@@ -112,13 +141,15 @@ class PoiGeocodingService
                 Cache::forget($key);
             }
         } catch (\Exception $e) {
-            // Fallback: flush semua cache (tidak disarankan, tapi untuk sementara)
             Cache::flush();
         }
     }
 
     /**
      * Cari POI dengan informasi halte terdekat (1 request untuk semua POI)
+     *
+     * @param string $query
+     * @return array|null
      */
     public function geocodePoiWithNearestStop(string $query): ?array
     {
@@ -131,7 +162,7 @@ class PoiGeocodingService
         return Cache::remember($cacheKey, 86400, function () use ($query) {
             $pois = Poi::where('name', 'like', "%{$query}%")
                 ->orWhere('category', 'like', "%{$query}%")
-                ->limit(10)  // Batasi 10 POI
+                ->limit(10)
                 ->get();
 
             if ($pois->isEmpty()) {
@@ -140,7 +171,6 @@ class PoiGeocodingService
 
             $results = [];
             foreach ($pois as $poi) {
-                // Cari halte terdekat untuk setiap POI
                 $nearest = $this->findNearestStop($poi->lat, $poi->lng);
 
                 $results[] = [

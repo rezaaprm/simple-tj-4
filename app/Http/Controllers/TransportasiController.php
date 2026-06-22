@@ -73,23 +73,29 @@ class TransportasiController extends Controller
         }
     }
 
+    /**
+     * API: Ambil semua halte unik dalam format JSON
+     * (Perbaikan: menggunakan isset untuk O(1) lookup, bukan in_array O(N²))
+     */
     public function getJsonHalte()
     {
         try {
-            $routes = $this->gtfsCache->getRoutesWithStopsAndShapes();
+            $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
 
             $allStops = [];
-            $uniqueIds = [];
+            $uniqueIds = []; // Gunakan array asosiatif untuk lookup cepat
 
-            foreach ($routes as $route) {
+            foreach ($routesData as $route) {
                 foreach ($route['stops'] as $stop) {
-                    if (!in_array($stop['id'], $uniqueIds)) {
-                        $uniqueIds[] = $stop['id'];
+                    $stopId = $stop['id'];
+                    // Cek apakah ID sudah ada (O(1) dengan isset)
+                    if (!isset($uniqueIds[$stopId])) {
+                        $uniqueIds[$stopId] = true;
                         $allStops[] = [
-                            'id' => $stop['id'],
+                            'id'   => $stopId,
                             'name' => $stop['name'],
-                            'lat' => $stop['lat'],
-                            'lng' => $stop['lng']
+                            'lat'  => $stop['lat'],
+                            'lng'  => $stop['lng']
                         ];
                     }
                 }
@@ -97,7 +103,7 @@ class TransportasiController extends Controller
 
             return response()->json([
                 'total' => count($allStops),
-                'data' => $allStops
+                'data'  => $allStops
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -9,6 +9,9 @@ class GtfsCacheService
 {
     /**
      * Ambil data routes lengkap dengan stops dan shapes (2 arah)
+     * Data di-cache selama 24 jam untuk performa optimal.
+     *
+     * @return array
      */
     public function getRoutesWithStopsAndShapes()
     {
@@ -18,14 +21,14 @@ class GtfsCacheService
     }
 
     /**
-     * Bangun data routes dari database
+     * Bangun data routes dari database (tanpa cache).
+     * Proses ini memuat seluruh data GTFS dari tabel:
+     * - tb_routes, tb_trips, tb_stops, tb_stop_times, tb_shapes, tb_calendar
+     *
+     * @return array
      */
     private function buildRoutesData()
     {
-        // Memastikan Zona Waktu selalu selaras
-        // Saat tes hari secara manual komentar timezone, lalu juga bagian today dan todayDate
-        date_default_timezone_set('Asia/Jakarta');
-
         // 1. Ambil semua rute
         $allRoutes = DB::table('tb_routes')->get();
 
@@ -45,16 +48,12 @@ class GtfsCacheService
         // ============================================================
         // 3. Ambil data trips berdasarkan filter kalender dinamis
         // ============================================================
-        $useCalendarFilter = env('USE_CALENDAR_FILTER', false);
+        $useCalendarFilter = config('gtfs.use_calendar_filter', false);
         $routeToTrips = [];
 
         if ($useCalendarFilter) {
             $today = strtolower(date('l'));
             $todayDate = date('Ymd');
-
-            // Tes untuk beda hari (senin sampai jumat), nyalakan bagian bawah, matikan timezone, today, todayDate
-            // $today = 'saturday';
-            // $todayDate = '20260523'; // Format YYYYMMDD
 
             // Mengambil service_id yang valid & aktif pada hari ini
             $activeServices = DB::table('tb_calendar')
@@ -249,7 +248,9 @@ class GtfsCacheService
     }
 
     /**
-     * Hapus cache
+     * Hapus cache data routes dari storage.
+     *
+     * @return void
      */
     public function clearCache()
     {

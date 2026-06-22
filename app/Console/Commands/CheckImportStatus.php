@@ -12,7 +12,7 @@ class CheckImportStatus extends Command
 
     public function handle()
     {
-        $this->info('📊 CEK STATUS IMPORT DATA GTFS');
+        $this->info('CEK STATUS IMPORT DATA GTFS');
         $this->line(str_repeat('=', 50));
 
         // 1. ROUTES
@@ -72,7 +72,7 @@ class CheckImportStatus extends Command
         $this->line("   Total: " . number_format($logs));
 
         // 7. RINGKASAN
-        $this->info("📋 RINGKASAN:");
+        $this->info("RINGKASAN:");
         $this->table(
             ['Tabel', 'Jumlah', 'Keterangan'],
             [
@@ -87,7 +87,7 @@ class CheckImportStatus extends Command
 
         // 8. REKOMENDASI
         $this->newLine();
-        $this->info("🎯 REKOMENDASI:");
+        $this->info("REKOMENDASI:");
 
         if ($routes == 0) $this->warn("   • Jalankan: php artisan db:seed --class=RouteSeeder");
         if ($stops == 0) $this->warn("   • Jalankan: php artisan db:seed --class=StopSeeder");

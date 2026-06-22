@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Galeri;
-use Carbon\Carbon;
 
 class GaleriController extends Controller
 {

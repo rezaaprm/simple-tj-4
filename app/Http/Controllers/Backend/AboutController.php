@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\About;
-use Carbon\Carbon;
 
 class AboutController extends Controller
 {
@@ -101,9 +100,8 @@ class AboutController extends Controller
     {
         //
         $data = About::findOrFail($id);
-        $data->update([
-            'deleted_at'    => Carbon::now(),
-        ]);
+        $data->delete();
+
         return redirect()->route('about.index')->with('success', 'Data Berhasil Dihapus');
     }
 }
