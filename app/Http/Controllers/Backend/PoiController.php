@@ -7,6 +7,7 @@ use App\Models\Poi;
 use App\Services\PoiGeocodingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB; // <-- PASTIKAN INI ADA
 
 class PoiController extends Controller
 {
@@ -47,16 +48,36 @@ class PoiController extends Controller
             'lng' => 'required|numeric|between:-180,180',
         ]);
 
+        $bounds = $this->getStopBounds();
+        $errors = [];
+
+        // Cek latitude
+        if ($request->lat < $bounds['min_lat'] || $request->lat > $bounds['max_lat']) {
+            $errors['lat'] = 'Latitude terlalu jauh dari jangkauan halte TransJakarta.';
+        }
+
+        // Cek longitude
+        if ($request->lng < $bounds['min_lng'] || $request->lng > $bounds['max_lng']) {
+            $errors['lng'] = 'Longitude terlalu jauh dari jangkauan halte TransJakarta.';
+        }
+
+        // Jika ada error koordinat, kembalikan
+        if (!empty($errors)) {
+            return back()->withErrors($errors)->withInput();
+        }
+
         // Validasi jarak ke halte terdekat (maksimal 2 km)
         $nearest = $this->poiService->findNearestStop($request->lat, $request->lng, 2000);
 
         if (!$nearest) {
             return back()
-                ->withErrors(['lat' => 'Lokasi terlalu jauh dari halte TransJakarta. Maksimal jarak 2 km.'])
+                ->withErrors([
+                    'lat' => 'Lokasi (latitude/longitude) terlalu jauh dari halte TransJakarta. Maksimal jarak 2 km.',
+                    'lng' => 'Lokasi (latitude/longitude) terlalu jauh dari halte TransJakarta. Maksimal jarak 2 km.'
+                ])
                 ->withInput();
         }
 
-        // Tambahkan info jarak ke nearest_stop (opsional untuk debugging)
         Log::info('POI baru: ' . $request->name . ' - jarak ke halte terdekat: ' . $nearest['distance_km'] . ' km');
 
         Poi::create([
@@ -64,7 +85,7 @@ class PoiController extends Controller
             'category' => $request->category,
             'lat' => $request->lat,
             'lng' => $request->lng,
-            'osm_id' => null, // bisa diisi manual jika perlu
+            'osm_id' => null,
         ]);
 
         return redirect()->route('admin.poi.index')
@@ -95,11 +116,29 @@ class PoiController extends Controller
             'lng' => 'required|numeric|between:-180,180',
         ]);
 
-        // Validasi jarak (kecuali jika tidak mengubah koordinat, tetap divalidasi ulang)
+        $bounds = $this->getStopBounds();
+        $errors = [];
+
+        if ($request->lat < $bounds['min_lat'] || $request->lat > $bounds['max_lat']) {
+            $errors['lat'] = 'Latitude terlalu jauh dari jangkauan halte TransJakarta.';
+        }
+
+        if ($request->lng < $bounds['min_lng'] || $request->lng > $bounds['max_lng']) {
+            $errors['lng'] = 'Longitude terlalu jauh dari jangkauan halte TransJakarta.';
+        }
+
+        if (!empty($errors)) {
+            return back()->withErrors($errors)->withInput();
+        }
+
         $nearest = $this->poiService->findNearestStop($request->lat, $request->lng, 2000);
+
         if (!$nearest) {
             return back()
-                ->withErrors(['lat' => 'Lokasi terlalu jauh dari halte TransJakarta. Maksimal jarak 2 km.'])
+                ->withErrors([
+                    'lat' => 'Lokasi (latitude/longitude) terlalu jauh dari halte TransJakarta. Maksimal jarak 2 km.',
+                    'lng' => 'Lokasi (latitude/longitude) terlalu jauh dari halte TransJakarta. Maksimal jarak 2 km.'
+                ])
                 ->withInput();
         }
 
@@ -132,5 +171,29 @@ class PoiController extends Controller
         $poi = Poi::findOrFail($id);
         $poi->delete();
         return redirect()->route('admin.poi.index')->with('success', 'POI berhasil dihapus');
+    }
+
+    /**
+     * Get bounding box (min/max lat/lng) of all stops.
+     *
+     * @return array
+     */
+    private function getStopBounds()
+    {
+        $bounds = DB::table('tb_stops')
+            ->select(
+                DB::raw('MIN(stop_lat) as min_lat'),
+                DB::raw('MAX(stop_lat) as max_lat'),
+                DB::raw('MIN(stop_lon) as min_lng'),
+                DB::raw('MAX(stop_lon) as max_lng')
+            )
+            ->first();
+
+        return [
+            'min_lat' => (float) $bounds->min_lat,
+            'max_lat' => (float) $bounds->max_lat,
+            'min_lng' => (float) $bounds->min_lng,
+            'max_lng' => (float) $bounds->max_lng,
+        ];
     }
 }

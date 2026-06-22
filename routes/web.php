@@ -2,7 +2,7 @@
 
 // Auth Controllers
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Session;
+// use Illuminate\Support\Facades\Session;
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -104,7 +104,6 @@ Route::middleware(['auth:admin', 'role:admin'])->prefix('admin')->name('admin.')
 Route::middleware(['auth:users', 'role:users'])->prefix('user')->name('user.')->group(function () {
     Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('dashboard');
     Route::get('/riwayat', [UserDashboardController::class, 'riwayat'])->name('riwayat');
-    // halaman map bisa diakses user juga, tapi bisa pakai route publik saja
 
     Route::get('/halte', [HalteController::class, 'index'])->name('halte.index');
     Route::get('/koridor', [KoridorController::class, 'index'])->name('koridor.index');
