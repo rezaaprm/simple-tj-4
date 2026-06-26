@@ -179,7 +179,7 @@ def build_graph(stop_map, routes, route_info):
     return graph
 
 # ============================================================
-# ALGORITMA DIJKSTRA (sama seperti sebelumnya)
+# ALGORITMA DIJKSTRA
 # ============================================================
 def dijkstra(graph, start_id, target_id):
     distances = {node: float('inf') for node in graph}

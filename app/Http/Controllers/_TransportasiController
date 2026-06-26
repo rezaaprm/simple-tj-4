@@ -14,71 +14,43 @@ class TransportasiController extends Controller
         $this->gtfsCache = $gtfsCache;
     }
 
-    // public function indeksPeta()
-    // {
-    //     try {
-    //         $startTime = microtime(true);
-
-    //         // Ambil data dari cache
-    //         // Ambil hanya metadata ringan untuk dropdown
-    //         $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
-
-    //         // DEBUG: Cek apakah data terisi
-    //         if (empty($routesData)) {
-    //             Log::error('routesData kosong!');
-    //         } else {
-    //             Log::info('routesData terisi: ' . count($routesData) . ' rute');
-    //         }
-
-    //         $totalRoutes = count($routesData);
-    //         $totalStops = 0;
-
-    //         foreach ($routesData as $route) {
-    //             $totalStops += count($route['stops']);
-    //         }
-
-    //         $loadTime = round(microtime(true) - $startTime, 2);
-
-    //         return view('map', [
-    //             'routes' => $routesData,
-    //             'totalRoutes' => $totalRoutes,
-    //             'totalStops' => $totalStops,
-    //             'loadTime' => $loadTime
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('TransportasiController error: ' . $e->getMessage());
-
-    //         return view('map', [
-    //             'routes' => [],
-    //             'totalRoutes' => 0,
-    //             'totalStops' => 0,
-    //             'error' => $e->getMessage()
-    //         ]);
-    //     }
-    // }
-
     public function indeksPeta()
     {
         try {
             $startTime = microtime(true);
 
-            // Ambil hanya metadata ringan untuk dropdown
-            $routesMeta = $this->gtfsCache->getRoutesMetadata();
+            // Ambil data dari cache
+            $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
 
-            $totalRoutes = count($routesMeta);
+            // DEBUG: Cek apakah data terisi
+            if (empty($routesData)) {
+                Log::error('routesData kosong!');
+            } else {
+                Log::info('routesData terisi: ' . count($routesData) . ' rute');
+            }
+
+            $totalRoutes = count($routesData);
+            $totalStops = 0;
+
+            foreach ($routesData as $route) {
+                $totalStops += count($route['stops']);
+            }
+
             $loadTime = round(microtime(true) - $startTime, 2);
 
             return view('map', [
-                'routesMeta' => $routesMeta,
+                'routes' => $routesData,
                 'totalRoutes' => $totalRoutes,
+                'totalStops' => $totalStops,
                 'loadTime' => $loadTime
             ]);
         } catch (\Exception $e) {
             Log::error('TransportasiController error: ' . $e->getMessage());
 
             return view('map', [
-                'routesMeta' => [],
+                'routes' => [],
                 'totalRoutes' => 0,
+                'totalStops' => 0,
                 'error' => $e->getMessage()
             ]);
         }

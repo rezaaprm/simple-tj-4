@@ -1,0 +1,329 @@
+import os
+import pandas as pd
+import warnings
+warnings.filterwarnings("ignore")
+# ============================================================================
+# KONFIGURASI PATH
+# ============================================================================
+dataset_path = r"D:\UPNVJ\X_Proposal\Dataset\gtfs-test\transjakarta"
+# ============================================================================
+# 1. PERBAIKI MASA BERLAKU service_id 'X'
+# ============================================================================
+calendar_file = os.path.join(dataset_path, "calendar.txt")
+df_calendar = pd.read_csv(calendar_file)
+df_calendar.loc[df_calendar['service_id'] == 'X', 'end_date'] = 20271231
+df_calendar.to_csv(calendar_file, index=False)
+print("1. calendar.txt diperbarui (service_id X -> 2027).")
+
+# ============================================================================
+# 2. BUAT feed_info.txt
+# ============================================================================
+feedinfo_file = os.path.join(dataset_path, "feed_info.txt")
+df_feed = pd.DataFrame([{
+    "feed_publisher_name": "Transjakarta",
+    "feed_publisher_url": "https://transjakarta.co.id/",
+    "feed_lang": "id",
+    "feed_contact_email": "naektije@transjakarta.co.id",
+    "feed_start_date": 20040115,
+    "feed_end_date": 20271231,
+    "feed_version": "2.0.0"
+}])
+df_feed.to_csv(feedinfo_file, index=False, lineterminator='\r\n')
+print("2. feed_info.txt dibuat.")
+
+# ============================================================================
+# 3. KONVERSI NAMA HALTE KE MIXED CASE
+# ============================================================================
+def to_mixed_case(name):
+    if pd.isna(name):
+        return name
+    title_named = str(name).title()
+    title_named = title_named.replace("Rs ", "RS ").replace("Lrt ", "LRT ").replace("Dpr ", "DPR ")
+    return title_named
+
+stops_file = os.path.join(dataset_path, "stops.txt")
+df_stops = pd.read_csv(stops_file)
+df_stops['stop_name'] = df_stops['stop_name'].apply(to_mixed_case)
+df_stops.to_csv(stops_file, index=False)
+print("3. stops.txt -> Mixed Case.")
+
+# ============================================================================
+# 4. NORMALISASI TIPE DATA INTEGER DI stop_times.txt
+# ============================================================================
+stoptimes_file = os.path.join(dataset_path, "stop_times.txt")
+df_stoptimes = pd.read_csv(stoptimes_file)
+df_stoptimes['stop_sequence'] = df_stoptimes['stop_sequence'].fillna(0).astype('int64')
+df_stoptimes['timepoint'] = df_stoptimes['timepoint'].fillna(0).astype('int64')
+if 'pickup_type' in df_stoptimes.columns:
+    df_stoptimes['pickup_type'] = df_stoptimes['pickup_type'].fillna(0).astype('int64')
+if 'drop_off_type' in df_stoptimes.columns:
+    df_stoptimes['drop_off_type'] = df_stoptimes['drop_off_type'].fillna(0).astype('int64')
+df_stoptimes.to_csv(stoptimes_file, index=False, float_format='%.0f')
+print("4. stop_times.txt -> integer (no .0).")
+
+# ============================================================================
+# 5. TAMBAHKAN EPSILON PADA shape_dist_traveled DUPLIKAT
+# ============================================================================
+shapes_file = os.path.join(dataset_path, "shapes.txt")
+df_shapes = pd.read_csv(shapes_file)
+eps = 0.001
+for shape_id, seq in [('mx84', 71), ('5C-R09_shp', 19)]:
+    mask = (df_shapes['shape_id'] == shape_id) & (df_shapes['shape_pt_sequence'] == seq)
+    if mask.any():
+        prev_val = df_shapes.loc[df_shapes['shape_id'] == shape_id, 'shape_dist_traveled'].shift(1).loc[mask].values
+        if len(prev_val) > 0 and pd.notna(prev_val[0]):
+            df_shapes.loc[mask, 'shape_dist_traveled'] = prev_val[0] + eps
+mask_seq53 = (df_shapes["shape_id"] == "13-R02_shp") & (df_shapes["shape_pt_sequence"] == 53)
+if mask_seq53.any():
+    df_shapes.loc[mask_seq53, "shape_dist_traveled"] = 3689.153250
+df_shapes = df_shapes.sort_values(['shape_id', 'shape_pt_sequence']).reset_index(drop=True)
+df_shapes.to_csv(shapes_file, index=False, float_format="%.6f", lineterminator='\r\n')
+print("5. shapes.txt -> epsilon dan perbaikan 13-R02_shp.")
+
+# ============================================================================
+# 6. SINKRONISASI JARAK MAKSIMAL TRIP vs SHAPE (46 kasus)
+# ============================================================================
+df_shapes_reload = pd.read_csv(shapes_file)
+max_shape_dist = df_shapes_reload.groupby("shape_id")["shape_dist_traveled"].max().to_dict()
+df_stoptimes_reload = pd.read_csv(stoptimes_file)
+trips_file = os.path.join(dataset_path, "trips.txt")
+df_trips = pd.read_csv(trips_file)
+trip_to_shape = dict(zip(df_trips['trip_id'], df_trips['shape_id']))
+
+df_stoptimes_reload['shape_dist_traveled'] = df_stoptimes_reload['shape_dist_traveled'].astype(float)
+last_idx_per_trip = df_stoptimes_reload.groupby('trip_id')['stop_sequence'].idxmax()
+for idx in last_idx_per_trip:
+    trip_id = df_stoptimes_reload.loc[idx, 'trip_id']
+    shape_id = trip_to_shape.get(trip_id)
+    if shape_id and shape_id in max_shape_dist:
+        max_allowed = max_shape_dist[shape_id]
+        if df_stoptimes_reload.loc[idx, 'shape_dist_traveled'] > max_allowed:
+            df_stoptimes_reload.loc[idx, 'shape_dist_traveled'] = max_allowed
+df_stoptimes_reload.to_csv(stoptimes_file, index=False, float_format='%.6f', lineterminator='\r\n')
+print("6. stop_times.txt -> 46 kasus sinkronisasi selesai.")
+
+# ============================================================================
+# 7. HAPUS 227 HALTE TIDAK TERPAKAI
+# ============================================================================
+stops_file = os.path.join(dataset_path, "stops.txt")
+transfers_file = os.path.join(dataset_path, "transfers.txt")
+df_stops_filter = pd.read_csv(stops_file)
+used_stops = set(df_stoptimes_reload['stop_id'].unique())
+df_transfers = None
+if os.path.exists(transfers_file):
+    df_transfers = pd.read_csv(transfers_file)
+    used_in_transfers = set(df_transfers['from_stop_id'].unique()) | set(df_transfers['to_stop_id'].unique())
+    used_stops.update(used_in_transfers)
+parent_stations = set(df_stops_filter[df_stops_filter['location_type'] == 1]['stop_id'])
+used_stops.update(parent_stations)
+df_stops_filtered = df_stops_filter[df_stops_filter['stop_id'].isin(used_stops)]
+df_stops_filtered.to_csv(stops_file, index=False, lineterminator='\r\n')
+print(f"7. stops.txt difilter: {len(df_stops_filter)} -> {len(df_stops_filtered)} halte.")
+print("\nSEMUA AKSI SELESAI.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import pymysql, math, heapq, time
+from collections import defaultdict
+
+DB_CONFIG = {
+    'host': '127.0.0.1',
+    'user': 'root',
+    'password': '',
+    'database': 'db_transportasi_jakarta_4'
+}
+TRANSFER_PENALTY = 2500
+BUS_WEIGHT = 800
+LONG_BUS_PENALTY = 100000
+STAY_BONUS = 0
+WALK_MULTIPLIER_SHORT = 5
+WALK_MULTIPLIER_LONG = 50
+MAX_WALK = 300
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371000
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+def fetch_stops():
+    conn = pymysql.connect(**DB_CONFIG)
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("SELECT stop_id, stop_name, stop_lat, stop_lon FROM tb_stops")
+    stops = cursor.fetchall()
+    conn.close()
+    return {s['stop_id']: {'name': s['stop_name'], 'lat': float(s['stop_lat']), 'lon': float(s['stop_lon'])} for s in stops}
+
+def fetch_routes_with_stops():
+    conn = pymysql.connect(**DB_CONFIG)
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("""
+        SELECT t.route_id, st.stop_id, st.stop_sequence
+        FROM tb_trips t JOIN tb_stop_times st ON t.trip_id = st.trip_id
+        ORDER BY t.route_id, st.stop_sequence
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    routes = defaultdict(list)
+    for row in rows:
+        routes[row['route_id']].append(row['stop_id'])
+    merged = {}
+    for rid, stops in routes.items():
+        seen = set()
+        merged[rid] = [s for s in stops if not (s in seen or seen.add(s))]
+    return merged
+
+def build_graph(stop_map, routes):
+    graph = defaultdict(list)
+    for route_id, stops in routes.items():
+        for i in range(len(stops)-1):
+            s1, s2 = stops[i], stops[i+1]
+            if s1 not in stop_map or s2 not in stop_map:
+                continue
+            lat1, lon1 = stop_map[s1]['lat'], stop_map[s1]['lon']
+            lat2, lon2 = stop_map[s2]['lat'], stop_map[s2]['lon']
+            dist = haversine(lat1, lon1, lat2, lon2)
+            weight = dist + BUS_WEIGHT
+            if dist > 4000:
+                weight += LONG_BUS_PENALTY
+            graph[s1].append({'to': s2, 'weight': weight, 'route_id': route_id})
+            graph[s2].append({'to': s1, 'weight': weight, 'route_id': route_id})
+    return graph
+
+def dijkstra(graph, start_id, target_id):
+    distances = {node: float('inf') for node in graph}
+    previous = {node: None for node in graph}
+    distances[start_id] = 0
+    pq = [(0, start_id)]
+    while pq:
+        cur_dist, cur_node = heapq.heappop(pq)
+        if cur_dist > distances[cur_node]:
+            continue
+        if cur_node == target_id:
+            break
+        for edge in graph.get(cur_node, []):
+            new_dist = cur_dist + edge['weight']
+            if new_dist < distances[edge['to']]:
+                distances[edge['to']] = new_dist
+                previous[edge['to']] = cur_node
+                heapq.heappush(pq, (new_dist, edge['to']))
+    path = []
+    cur = target_id
+    while cur:
+        path.insert(0, cur)
+        cur = previous[cur]
+    total = distances[target_id] if distances[target_id] != float('inf') else 0
+    return {'path': path, 'total_distance': total, 'node_count': len(path)}
+
+def main():
+    print("VERIFIKASI AKURASI DIJKSTRA (PYTHON)")
+    stop_map = fetch_stops()
+    routes = fetch_routes_with_stops()
+    graph = build_graph(stop_map, routes)
+    scenarios = [
+        ('P00017', 'H00251P', 'Blok M → Tosari'), ('H00240P', 'B05492P', 'Tanjung Priok → St. MRT Lebak Bulus'), ('H00003P', 'H00178P', 'Ancol → Pondok Indah')
+    ]
+    for start, target, label in scenarios:
+        t0 = time.time()
+        res = dijkstra(graph, start, target)
+        ms = (time.time() - t0) * 1000
+        print(f"{label}: {res['total_distance']/1000:.2f} km, {res['node_count']} halte, {ms:.2f} ms")
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+def print_route_details(graph, start_id, target_id, stop_map):
+    result = dijkstra(graph, start_id, target_id)
+    path = result['path']
+    print("No | Nama Halte | Jarak ke Sebelumnya (km) | Kumulatif (km)")
+    cum = 0
+    for i, sid in enumerate(path):
+        name = stop_map.get(sid, {}).get('name', sid)
+        if i == 0:
+            print(f"{i+1} | {name[:35]} | START | {cum:.2f}")
+        else:
+            prev = path[i-1]
+            lat1, lon1 = stop_map[prev]['lat'], stop_map[prev]['lon']
+            lat2, lon2 = stop_map[sid]['lat'], stop_map[sid]['lon']
+            seg = haversine(lat1, lon1, lat2, lon2) / 1000
+            cum += seg
+            print(f"{i+1} | {name[:35]} | {seg:8.2f} | {cum:8.2f}")
+    print(f"Total: {cum:.2f} km | {len(path)} halte")
+
+def main():
+    print("DEBUG LONCATAN JARAK")
+    stop_map = fetch_stops()
+    routes = fetch_routes_with_stops()
+    graph = build_graph(stop_map, routes)
+    # Skenario ekstrem
+    print_route_details(graph, 'B03653P', 'B02861P', stop_map)  # Sbr. Jln. Berlian → Plaza Europa
+    print_route_details(graph, 'B02557P', 'B03433P', stop_map)  # Palem Semi 2 → SDN Tanah Tinggi
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import random
+
+def main():
+    print("10 TES RUTE ACAK (DIJKSTRA)")
+    stop_map = fetch_stops()
+    routes = fetch_routes_with_stops()
+    graph = build_graph(stop_map, routes)
+    stop_ids = list(stop_map.keys())
+    random.seed(42)
+    selected = random.sample(stop_ids, min(100, len(stop_ids)))
+    pairs = []
+    while len(pairs) < 10:
+        a, b = random.choice(selected), random.choice(selected)
+        if a != b and (a,b) not in pairs:
+            pairs.append((a,b))
+    for i, (start, target) in enumerate(pairs, 1):
+        t0 = time.time()
+        res = dijkstra(graph, start, target)
+        ms = (time.time() - t0) * 1000
+        jarak_km = res['total_distance'] / 1000
+        print(f"{i}. {stop_map[start]['name']} → {stop_map[target]['name']}: {jarak_km:.2f} km, {res['node_count']} halte, {ms:.2f} ms")
+
+if __name__ == "__main__":
+    main()

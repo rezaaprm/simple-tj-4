@@ -1,0 +1,256 @@
+<?php
+
+// Auth Controllers
+use Illuminate\Support\Facades\Route;
+// use Illuminate\Support\Facades\Session;
+
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Backend\UserDashboardController;
+
+// Main Transport & Backend
+use App\Http\Controllers\TransportasiController;
+use App\Http\Controllers\Backend\DashboardController;
+use App\Http\Controllers\Backend\AlgoritmaController;
+use App\Http\Controllers\Backend\HalteController;
+use App\Http\Controllers\Backend\KoridorController;
+use App\Http\Controllers\Backend\PencarianLogController;
+
+// API Controllers
+use App\Http\Controllers\Api\HalteController as ApiHalteController;
+use App\Http\Controllers\Api\KoridorController as ApiKoridorController;
+use App\Http\Controllers\Api\RuteController as ApiRuteController;
+use App\Http\Controllers\Api\PencarianLogApiController;
+use App\Http\Controllers\Api\GeocodingController;
+
+// Backend CRUD (CMS)
+use App\Http\Controllers\Backend\AboutController;
+use App\Http\Controllers\Backend\DestinasiController;
+use App\Http\Controllers\Backend\InfoStatistikController;
+use App\Http\Controllers\Backend\GaleriController;
+use App\Http\Controllers\Backend\KolaborasiController;
+use App\Http\Controllers\Backend\PoiController;
+
+// Frontend Public
+use App\Http\Controllers\Frontend\FrontendController;
+
+// ============================================================
+
+// L-05 — Routing Web (routes/web.php)
+
+Route::get('/peta', [TransportasiController::class, 'indeksPeta'])->name('public.map');
+
+Route::middleware(['auth:admin', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/transjakarta/map', [TransportasiController::class, 'indeksPeta'])->name('transjakarta.map');
+    Route::get('/algoritma', [AlgoritmaController::class, 'index'])->name('algoritma');
+    // ... CRUD resources, halte, koridor, log, dll.
+});
+
+Route::get('/explore', [FrontendController::class, 'index'])->name('frontend.explore');
+
+
+// L-06 — Routing API (routes/web.php) — bagian prefix api
+
+Route::prefix('api')->group(function () {
+    Route::get('/geocode', [GeocodingController::class, 'geocode']);
+    Route::get('/nearest-stop', [GeocodingController::class, 'nearestStop']);
+    Route::post('/pencarian-log', [PencarianLogApiController::class, 'store']);
+    Route::get('/halte/cari', [ApiHalteController::class, 'cari']);
+    Route::post('/rute/cari', [ApiRuteController::class, 'cariRute']);
+    // ... routes lainnya
+});
+
+
+// L-07 — Controller Transportasi (TransportasiController.php)
+class TransportasiController extends Controller
+{
+    public function indeksPeta()
+    {
+        $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
+        return view('map', [
+            'routes' => $routesData,
+            'totalRoutes' => count($routesData),
+            'loadTime' => round(microtime(true) - $startTime, 2)
+        ]);
+    }
+    public function getRoutesJson()
+    {
+        $routes = $this->gtfsCache->getRoutesWithStopsAndShapes();
+        return response()->json(['success' => true, 'total' => count($routes), 'data' => $routes]);
+    }
+}
+
+// L-08 — GeocodingController (Api/GeocodingController.php)
+
+class GeocodingController extends Controller
+{
+    protected $geocoder;
+
+    public function __construct(PoiGeocodingService $geocoder)
+    {
+        $this->geocoder = $geocoder;
+    }
+    public function geocode(Request $request)
+    {
+        $query = $request->query('q');
+        if (!$query || strlen($query) < 2) return response()->json([]);
+        $pois = $this->geocoder->geocodePoiWithNearestStop($query);
+        return response()->json($pois ?? []);
+    }
+    public function nearestStop(Request $request)
+    {
+        $lat = $request->query('lat');
+        $lng = $request->query('lng');
+        if (!$lat || !$lng) return response()->json(['error' => 'Latitude and longitude required'], 400);
+        $nearest = $this->geocoder->findNearestStop($lat, $lng);
+        if (!$nearest) return response()->json(['error' => 'No stop found within radius'], 404);
+        return response()->json(['stop' => $nearest['stop'], 'distance_meters' => $nearest['distance']]);
+    }
+}
+
+// L-09 — GtfsCacheService (Services/GtfsCacheService.php)
+
+class GtfsCacheService
+{
+    public function getRoutesWithStopsAndShapes()
+    {
+        return Cache::remember('gtfs_routes_final', 86400, function () {
+            return $this->buildRoutesData();
+        });
+    }
+
+    private function buildRoutesData()
+    {
+        $allRoutes = DB::table('tb_routes')->get();
+        $stopsData = [];
+        $allStops = DB::table('tb_stops')->get();
+        foreach ($allStops as $stop) {
+            $stopsData[$stop->stop_id] = [
+                'id' => $stop->stop_id,
+                'name' => $stop->stop_name,
+                'lat' => (float) $stop->stop_lat,
+                'lng' => (float) $stop->stop_lon
+            ];
+        }
+        // ... proses pembangunan data rute
+        return $routesData;
+    }
+}
+
+// L-10 — PoiGeocodingService (Services/PoiGeocodingService.php)
+
+class PoiGeocodingService
+{
+    public function findNearestStop(float $lat, float $lng, float $radiusMeters = 2000): ?array
+    {
+        $radii = [2000, 5000, 10000];
+        foreach ($radii as $radius) {
+            $nearestStop = DB::select("
+                SELECT *,
+                    (6371 * acos(
+                        cos(radians(?)) * cos(radians(stop_lat)) *
+                        cos(radians(stop_lon) - radians(?)) +
+                        sin(radians(?)) * sin(radians(stop_lat))
+                    )) as distance_km
+                FROM tb_stops
+                HAVING distance_km <= ?
+                ORDER BY distance_km ASC
+                LIMIT 1
+            ", [$lat, $lng, $lat, $radius / 1000]);
+            if (!empty($nearestStop)) {
+                $stop = $nearestStop[0];
+                return ['stop' => $stop, 'distance' => $stop->distance_km * 1000, 'distance_km' => round($stop->distance_km, 2)];
+            }
+        }
+        return null;
+    }
+}
+
+// L-11 — RoleMiddleware (app/Http/Middleware/RoleMiddleware.php)
+
+class RoleMiddleware
+{
+    public function handle(Request $request, Closure $next, $guard): Response
+    {
+        if (!Auth::guard($guard)->check()) {
+            return redirect()->route('login');
+        }
+        $user = Auth::guard($guard)->user();
+        $expectedRole = ($guard === 'admin') ? 'admin' : 'users';
+        if ($user->role !== $expectedRole) {
+            Auth::guard($guard)->logout();
+            return redirect()->route('login')->withErrors(['email' => 'Akses tidak diizinkan.']);
+        }
+        return $next($request);
+    }
+}
+
+// L-12 — config/auth.php (guard dan provider)
+return [
+    'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admins',
+        ],
+        'users' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+    ],
+    'providers' => [
+        'users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Users::class,
+        ],
+        'admins' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Users::class,
+        ],
+    ],
+]
+
+
+
+
+
+
+
+
+// L-14 — map.blade.php (resources/views/map.blade.php) — potongan JavaScript Dijkstra
+
+<script>
+    function findCompleteRoute(start, end, preference) {
+        const graph = {};
+        const TRANSFER_PENALTY = (preference === 'transfer') ? 50000 : 2500;
+        const BUS_WEIGHT = (preference === 'transfer') ? 600 : 800;
+        const WALK_MULTIPLIER = (preference === 'transfer') ? 10 : 5;
+        // ... building graph and Dijkstra
+        return {
+            stops: [],
+            koridors: []
+        };
+    }
+
+    function calculateRoute1() {
+        // Cari 1: prioritas jarak
+        const start = selectedStartStop,
+            end = selectedEndStop;
+        if (!start || !end) return alert('Pilih halte awal dan tujuan');
+        const route = findCompleteRoute(start, end, 'distance');
+        displayRouteResult(route);
+    }
+
+    function calculateRoute2() {
+        // Cari 2: prioritas transfer
+        const start = selectedStartStop,
+            end = selectedEndStop;
+        if (!start || !end) return alert('Pilih halte awal dan tujuan');
+        const route = findCompleteRoute(start, end, 'transfer');
+        displayRouteResult(route);
+    }
+</script>
