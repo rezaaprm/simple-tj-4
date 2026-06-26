@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_contact_email,feed_contact_url,feed_start_date,feed_end_date,feed_version
+Transjakarta,https://transjakarta.co.id/,id,naektije@transjakarta.co.id,https://transjakarta.co.id/,20040115,20271231,2.0.0
