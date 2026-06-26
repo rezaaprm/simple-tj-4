@@ -3,33 +3,49 @@
   "framework": null,
   "functions": {
     "api/index.php": {
-      "runtime": "vercel-php@0.6.2"
+      "runtime": "vercel-php@0.7.1"
     }
   },
   "routes": [
     {
       "src": "/build/(.*)",
-      "dest": "/public/build/"
+      "dest": "/public/build/$1"
     },
     {
       "src": "/storage/build/(.*)",
-      "dest": "/public/storage/build/"
+      "dest": "/public/storage/build/$1"
     },
     {
       "src": "/css/(.*)",
-      "dest": "/public/css/"
+      "dest": "/public/css/$1"
     },
     {
       "src": "/images/(.*)",
-      "dest": "/public/images/"
+      "dest": "/public/images/$1"
     },
     {
       "src": "/js/(.*)",
-      "dest": "/public/js/"
+      "dest": "/public/js/$1"
     },
     {
       "src": "/vendors/(.*)",
-      "dest": "/public/vendors/"
+      "dest": "/public/vendors/$1"
+    },
+    {
+      "src": "/image/(.*)",
+      "dest": "/public/image/$1"
+    },
+    {
+      "src": "/travela-1.0.0/(.*)",
+      "dest": "/public/travela-1.0.0/$1"
+    },
+    {
+      "src": "/upload/(.*)",
+      "dest": "/public/upload/$1"
+    },
+    {
+      "src": "/gtfs/(.*)",
+      "dest": "/public/gtfs/$1"
     },
     {
       "src": "/(.*)",
