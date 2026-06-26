@@ -248,26 +248,6 @@ class GtfsCacheService
     }
 
     /**
-     * Ambil metadata ringan rute (hanya id, short_name, long_name, color).
-     * Digunakan untuk dropdown koridor tanpa membebani payload.
-     *
-     * @return array
-     */
-    public function getRoutesMetadata()
-    {
-        return Cache::remember('gtfs_routes_metadata', 86400, function () {
-            return DB::table('tb_routes')
-                ->select('route_id as id', 'route_short_name as short_name', 'route_long_name as long_name', 'route_color as color')
-                ->get()
-                ->map(function ($route) {
-                    return (array) $route;
-                })
-                ->toArray();
-        });
-    }
-
-
-    /**
      * Hapus cache data routes dari storage.
      *
      * @return void
