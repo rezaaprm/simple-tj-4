@@ -44,17 +44,17 @@
                             </div>
 
                             <!-- <div class="row">
-                                                                                                                <div class="col-6">
-                                                                                                                    <button class="btn btn-secondary btn-block btn-sm" id="clearBtn" onclick="clearRoute()" disabled>
-                                                                                                                        <i class="fas fa-undo"></i> Reset
-                                                                                                                    </button>
-                                                                                                                </div>
-                                                                                                                <div class="col-6">
-                                                                                                                    <button class="btn btn-warning btn-block btn-sm" id="routeBtn" onclick="calculateRoute()" disabled>
-                                                                                                                        <i class="fas fa-route"></i> Cari
-                                                                                                                    </button>
-                                                                                                                </div>
-                                                                                                            </div> -->
+                                                                                                                                                    <div class="col-6">
+                                                                                                                                                        <button class="btn btn-secondary btn-block btn-sm" id="clearBtn" onclick="clearRoute()" disabled>
+                                                                                                                                                            <i class="fas fa-undo"></i> Reset
+                                                                                                                                                        </button>
+                                                                                                                                                    </div>
+                                                                                                                                                    <div class="col-6">
+                                                                                                                                                        <button class="btn btn-warning btn-block btn-sm" id="routeBtn" onclick="calculateRoute()" disabled>
+                                                                                                                                                            <i class="fas fa-route"></i> Cari
+                                                                                                                                                        </button>
+                                                                                                                                                    </div>
+                                                                                                                                                </div> -->
 
                             <div class="row">
                                 <div class="col-6">
@@ -398,6 +398,7 @@
     <script>
         // ==================== Data dari Controller ====================
         const routes = @json($routes);
+        const isProduction = @json($isProduction ?? false);
         console.log('Routes loaded:', routes.length);
 
         // ==================== Inisialisasi Peta ====================
@@ -427,7 +428,7 @@
         let selectingPoi = false;
 
 
-        // ===== Gabungkan berdasarkan nama halte + koridor, tambahkan arah =====
+        // ===== GABUNGKAN BERDASARKAN NAMA HALTE + KORIDOR, TAMBAHKAN ARAH =====
         const uniqueStops = new Map();
 
         routes.forEach(route => {
@@ -446,7 +447,7 @@
                         routeColor: route.color,
                         stopNumber: index + 1,
                         searchText: `${stop.name} ${route.short_name} ${route.long_name}`.toLowerCase(),
-                        // Simpan semua arah
+                        // 🔥 SIMPAN SEMUA ARAH
                         directions: []
                     });
                 }
@@ -498,6 +499,15 @@
 
         // ==================== Fungsi Gambar Semua Rute ====================
         function drawAllRoutes() {
+            if (isProduction) {
+                // Di production, shape akan di-load via AJAX saat toggle
+                console.log('Production mode: shape will be loaded via AJAX');
+                // Tapi kita tetap perlu menampilkan dropdown (sudah ada di HTML)
+                // Jadi tidak perlu melakukan apa-apa di sini
+                return;
+            }
+
+            // Kode lama untuk lokal (gambar semua shape sekaligus)
             routes.forEach(route => {
                 if (route.shape && route.shape.length > 0 && !routeLayers[route.id]) {
                     const polyline = L.polyline(route.shape, {
@@ -511,9 +521,7 @@
                     routeLayers[route.id] = polyline;
                     activeRoutes.add(route.id);
                     const dropdown = document.querySelector(`.koridor-dropdown[data-route-id="${route.id}"]`);
-                    if (dropdown) {
-                        dropdown.classList.add('active');
-                    }
+                    if (dropdown) dropdown.classList.add('active');
                 }
             });
             updateActiveRoutesCount();
@@ -554,7 +562,11 @@
 
         // ==================== Toggle Rute ====================
         function toggleRoute(routeId) {
+            const route = routes.find(r => r.id == routeId);
+            if (!route) return;
+
             if (activeRoutes.has(routeId)) {
+                // Sembunyikan
                 if (routeLayers[routeId]) {
                     map.removeLayer(routeLayers[routeId]);
                     delete routeLayers[routeId];
@@ -562,22 +574,66 @@
                 activeRoutes.delete(routeId);
                 const dropdown = document.querySelector(`.koridor-dropdown[data-route-id="${routeId}"]`);
                 if (dropdown) dropdown.classList.remove('active');
+                updateActiveRoutesCount();
+                return;
+            }
+
+            // Jika di production dan shape belum di-load, ambil via AJAX
+            if (isProduction && !routeLayers[routeId]) {
+                fetch(`/api/shape/${routeId}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.shape.length > 0) {
+                            const polyline = L.polyline(data.shape, {
+                                color: route.color,
+                                weight: 4,
+                                opacity: 0.8
+                            }).addTo(map);
+                            polyline.bindTooltip(`<b>Koridor ${route.short_name}</b>`, {
+                                sticky: true
+                            });
+                            routeLayers[routeId] = polyline;
+                            activeRoutes.add(routeId);
+
+                            const dropdown = document.querySelector(`.koridor-dropdown[data-route-id="${routeId}"]`);
+                            if (dropdown) dropdown.classList.add('active');
+                            updateActiveRoutesCount();
+                        } else {
+                            alert('Gagal memuat shape untuk koridor ini.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error loading shape:', err);
+                        alert('Terjadi kesalahan saat memuat shape.');
+                    });
+                return;
+            }
+
+            // Jika shape sudah ada (lokal atau sudah di-load), tampilkan
+            if (routeLayers[routeId]) {
+                map.addLayer(routeLayers[routeId]);
+                activeRoutes.add(routeId);
+                const dropdown = document.querySelector(`.koridor-dropdown[data-route-id="${routeId}"]`);
+                if (dropdown) dropdown.classList.add('active');
+                updateActiveRoutesCount();
             } else {
-                const route = routes.find(r => r.id == routeId);
-                if (route && route.shape && route.shape.length > 0) {
+                // Fallback: coba load via AJAX (untuk lokal jika shape kosong)
+                if (!isProduction && route.shape && route.shape.length > 0) {
                     const polyline = L.polyline(route.shape, {
                         color: route.color,
-                        weight: 4,
-                        opacity: 0.8
+                        weight: 3,
+                        opacity: 0.7
                     }).addTo(map);
-                    polyline.bindTooltip(`<b>Koridor ${route.short_name}</b>`);
+                    polyline.bindTooltip(`<b>Koridor ${route.short_name}</b>`, {
+                        sticky: true
+                    });
                     routeLayers[routeId] = polyline;
                     activeRoutes.add(routeId);
                     const dropdown = document.querySelector(`.koridor-dropdown[data-route-id="${routeId}"]`);
                     if (dropdown) dropdown.classList.add('active');
+                    updateActiveRoutesCount();
                 }
             }
-            updateActiveRoutesCount();
         }
         window.toggleRoute = toggleRoute;
 
