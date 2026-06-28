@@ -24,3 +24,8 @@ Homestead.yaml
 Thumbs.db
 
 .vercel
+
+# Environment backup files
+env_dev.txt
+env_prod.txt
+_env/
