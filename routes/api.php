@@ -57,3 +57,14 @@ Route::get('/stops-by-trip/{tripId}', function ($tripId) {
 // POI routes
 Route::get('/geocode', [GeocodingController::class, 'geocode']);
 Route::get('/nearest-stop', [GeocodingController::class, 'nearestStop']);
+
+// API untuk mengambil shape berdasarkan routeId (digunakan oleh AJAX di production)
+Route::get('/shape/{routeId}', function ($routeId) {
+    try {
+        $service = app(\App\Services\GtfsCacheService::class);
+        $shape = $service->getShapeByRouteId($routeId);
+        return response()->json(['success' => true, 'shape' => $shape]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+});

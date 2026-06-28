@@ -19,17 +19,19 @@ class TransportasiController extends Controller
         try {
             $startTime = microtime(true);
 
-            $isProduction = app()->environment('production');
+            // Ambil data dari cache
+            $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
 
-            // Jika production, ambil ringkasan (tanpa shape)
-            if ($isProduction) {
-                $routesData = $this->gtfsCache->getRoutesSummaryOnly();
+            // DEBUG: Cek apakah data terisi
+            if (empty($routesData)) {
+                Log::error('routesData kosong!');
             } else {
-                $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes(false);
+                Log::info('routesData terisi: ' . count($routesData) . ' rute');
             }
 
             $totalRoutes = count($routesData);
             $totalStops = 0;
+
             foreach ($routesData as $route) {
                 $totalStops += count($route['stops']);
             }
@@ -40,17 +42,16 @@ class TransportasiController extends Controller
                 'routes' => $routesData,
                 'totalRoutes' => $totalRoutes,
                 'totalStops' => $totalStops,
-                'loadTime' => $loadTime,
-                'isProduction' => $isProduction,
+                'loadTime' => $loadTime
             ]);
         } catch (\Exception $e) {
             Log::error('TransportasiController error: ' . $e->getMessage());
+
             return view('map', [
                 'routes' => [],
                 'totalRoutes' => 0,
                 'totalStops' => 0,
-                'error' => $e->getMessage(),
-                'isProduction' => app()->environment('production'),
+                'error' => $e->getMessage()
             ]);
         }
     }
