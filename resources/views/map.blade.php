@@ -44,17 +44,17 @@
                             </div>
 
                             <!-- <div class="row">
-                                                                                                                                                    <div class="col-6">
-                                                                                                                                                        <button class="btn btn-secondary btn-block btn-sm" id="clearBtn" onclick="clearRoute()" disabled>
-                                                                                                                                                            <i class="fas fa-undo"></i> Reset
-                                                                                                                                                        </button>
-                                                                                                                                                    </div>
-                                                                                                                                                    <div class="col-6">
-                                                                                                                                                        <button class="btn btn-warning btn-block btn-sm" id="routeBtn" onclick="calculateRoute()" disabled>
-                                                                                                                                                            <i class="fas fa-route"></i> Cari
-                                                                                                                                                        </button>
-                                                                                                                                                    </div>
-                                                                                                                                                </div> -->
+                                                                                                                                                                                    <div class="col-6">
+                                                                                                                                                                                        <button class="btn btn-secondary btn-block btn-sm" id="clearBtn" onclick="clearRoute()" disabled>
+                                                                                                                                                                                            <i class="fas fa-undo"></i> Reset
+                                                                                                                                                                                        </button>
+                                                                                                                                                                                    </div>
+                                                                                                                                                                                    <div class="col-6">
+                                                                                                                                                                                        <button class="btn btn-warning btn-block btn-sm" id="routeBtn" onclick="calculateRoute()" disabled>
+                                                                                                                                                                                            <i class="fas fa-route"></i> Cari
+                                                                                                                                                                                        </button>
+                                                                                                                                                                                    </div>
+                                                                                                                                                                                </div> -->
 
                             <div class="row">
                                 <div class="col-6">
@@ -398,8 +398,11 @@
     <script>
         // ==================== Data dari Controller ====================
         const routes = @json($routes);
+        const allStops = @json($allStops ?? []);
         const isProduction = @json($isProduction ?? false);
         console.log('Routes loaded:', routes.length);
+        console.log('All stops count:', allStops.length);
+        console.log('Production mode:', isProduction);
 
         // ==================== Inisialisasi Peta ====================
         const jakartaBounds = L.latLngBounds(L.latLng(-6.4, 106.6), L.latLng(-6.0, 107.0));
@@ -426,54 +429,62 @@
         let routeLayers_temp = {};
         let currentRouteMarkers = [];
         let selectingPoi = false;
+        let routeShapes = {};
 
 
-        // ===== GABUNGKAN BERDASARKAN NAMA HALTE + KORIDOR, TAMBAHKAN ARAH =====
-        const uniqueStops = new Map();
+        // ===== Gabungkan data halte =====
+        let allStopsWithRoutes = [];
 
-        routes.forEach(route => {
-            route.stops.forEach((stop, index) => {
-                // Kunci = nama halte + koridor (tanpa arah)
-                const key = stop.name + '|' + route.short_name;
-
-                if (!uniqueStops.has(key)) {
-                    uniqueStops.set(key, {
-                        id: stop.id, // simpan stop.id pertama (arah A)
-                        name: stop.name,
-                        lat: stop.lat,
-                        lng: stop.lng,
-                        routeId: route.id,
-                        routeName: `Koridor ${route.short_name}`,
-                        routeColor: route.color,
-                        stopNumber: index + 1,
-                        searchText: `${stop.name} ${route.short_name} ${route.long_name}`.toLowerCase(),
-                        // 🔥 SIMPAN SEMUA ARAH
-                        directions: []
-                    });
-                }
-
-                // Ambil arah dari long_name (misal "(A)" atau "(B)")
-                const directionMatch = route.long_name.match(/\([A-Z]\)/);
-                const direction = directionMatch ? directionMatch[0] : '';
-
-                // Tambahkan arah ke daftar directions
-                const entry = uniqueStops.get(key);
-                if (!entry.directions.includes(direction)) {
-                    entry.directions.push(direction);
-                }
-
-                // Simpan juga stop_id untuk arah ini (opsional, untuk perhitungan)
-                // entry.id bisa tetap pakai stop.id pertama, atau kita bisa simpan array
+        if (isProduction) {
+            // Production: gunakan allStops dari controller (tanpa relasi rute)
+            allStopsWithRoutes = allStops.map(stop => ({
+                id: stop.id,
+                name: stop.name,
+                lat: stop.lat,
+                lng: stop.lng,
+                routeName: '',
+                routeColor: '#27ae60',
+                stopNumber: 0,
+                searchText: stop.name.toLowerCase(),
+                directions: []
+            }));
+            console.log('Production mode: using pre-fetched allStops');
+        } else {
+            // Lokal: bangun dari routes (seperti sebelumnya)
+            const uniqueStops = new Map();
+            routes.forEach(route => {
+                route.stops.forEach((stop, index) => {
+                    const key = stop.name + '|' + route.short_name;
+                    if (!uniqueStops.has(key)) {
+                        uniqueStops.set(key, {
+                            id: stop.id,
+                            name: stop.name,
+                            lat: stop.lat,
+                            lng: stop.lng,
+                            routeId: route.id,
+                            routeName: `Koridor ${route.short_name}`,
+                            routeColor: route.color,
+                            stopNumber: index + 1,
+                            searchText: `${stop.name} ${route.short_name} ${route.long_name}`.toLowerCase(),
+                            directions: []
+                        });
+                    }
+                    const entry = uniqueStops.get(key);
+                    const directionMatch = route.long_name.match(/\([A-Z]\)/);
+                    const direction = directionMatch ? directionMatch[0] : '';
+                    if (!entry.directions.includes(direction)) {
+                        entry.directions.push(direction);
+                    }
+                });
             });
-        });
+            allStopsWithRoutes = Array.from(uniqueStops.values()).map(entry => {
+                const directionStr = entry.directions.length > 0 ? entry.directions.join(' / ') : '';
+                entry.displayName = `${entry.name} - ${entry.routeName} ${directionStr}`.trim();
+                return entry;
+            });
+        }
 
-        // Konversi Map ke array, dengan displayName yang menyertakan arah
-        const allStopsWithRoutes = Array.from(uniqueStops.values()).map(entry => {
-            // Buat display name dengan arah
-            const directionStr = entry.directions.length > 0 ? entry.directions.join(' / ') : '';
-            entry.displayName = `${entry.name} - ${entry.routeName} ${directionStr}`.trim();
-            return entry;
-        });
+        console.log('All stops for search:', allStopsWithRoutes.length);
 
         function haversineDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
@@ -502,8 +513,6 @@
             if (isProduction) {
                 // Di production, shape akan di-load via AJAX saat toggle
                 console.log('Production mode: shape will be loaded via AJAX');
-                // Tapi kita tetap perlu menampilkan dropdown (sudah ada di HTML)
-                // Jadi tidak perlu melakukan apa-apa di sini
                 return;
             }
 
@@ -584,6 +593,9 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.success && data.shape.length > 0) {
+                            // Simpan shape points untuk referensi nanti
+                            routeShapes[routeId] = data.shape;
+
                             const polyline = L.polyline(data.shape, {
                                 color: route.color,
                                 weight: 4,
@@ -1363,11 +1375,25 @@
             const stops = route.stops,
                 koridors = route.koridors;
             koridors.forEach((k, i) => {
-                if (k?.shape?.length) routeLayers_temp[`route_${k.id}_${i}`] = L.polyline(k.shape, {
-                    color: '#e74c3c',
-                    weight: 6,
-                    opacity: 0.9
-                }).addTo(map);
+                // Coba ambil shape dari data koridor, atau dari routeShapes (AJAX), atau dari routeLayers (jika sudah di-load)
+                let shapePoints = k?.shape;
+                if (!shapePoints || shapePoints.length === 0) {
+                    // Cari dari routeShapes yang sudah di-load via AJAX
+                    if (routeShapes[k.id]) {
+                        shapePoints = routeShapes[k.id];
+                    } else if (routeLayers[k.id]) {
+                        // Jika polyline sudah ada, ekstrak koordinatnya (opsional, agak rumit)
+                        // Lebih baik skip karena kita tidak bisa ekstrak dari polyline dengan mudah
+                        // Kita hanya menggunakan routeShapes yang sudah disimpan
+                    }
+                }
+                if (shapePoints && shapePoints.length > 0) {
+                    routeLayers_temp[`route_${k.id}_${i}`] = L.polyline(shapePoints, {
+                        color: '#e74c3c',
+                        weight: 6,
+                        opacity: 0.9
+                    }).addTo(map);
+                }
             });
             const points = [];
             stops.forEach((s, i) => {
