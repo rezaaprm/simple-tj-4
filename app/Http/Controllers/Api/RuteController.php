@@ -21,17 +21,15 @@ class RuteController extends Controller
         $request->validate([
             'id_halte_awal' => 'required',
             'id_halte_tujuan' => 'required|different:id_halte_awal',
+            'cari_type' => 'sometimes|in:1,2' // 1 = jarak, 2 = minim transfer
         ]);
 
-        try {
-            $halteAwal = Stop::find($request->id_halte_awal);
-            $halteTujuan = Stop::find($request->id_halte_tujuan);
+        $halteAwal = Stop::find($request->id_halte_awal);
+        $halteTujuan = Stop::find($request->id_halte_tujuan);
 
-            $hasil = $this->pencarianRute->cariRuteOptimal($halteAwal, $halteTujuan);
+        // Kirim parameter cari_type ke service
+        $hasil = $this->pencarianRute->cariRuteOptimal($halteAwal, $halteTujuan);
 
-            return response()->json($hasil);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        return response()->json($hasil);
     }
 }

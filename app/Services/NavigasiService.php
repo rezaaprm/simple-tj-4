@@ -4,193 +4,271 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use SplPriorityQueue;
 
 class NavigasiService
 {
+    const BUS_SPEED_MPS = 6.94;      // 25 km/jam
+    const WALK_SPEED_MPS = 1.4;      // 5 km/jam
+    const DEFAULT_TRANSFER_WAIT = 300; // 5 menit
+
     /**
-     * Hitung jarak Haversine antara dua koordinat (meter)
-     *
-     * @param float $lat1
-     * @param float $lon1
-     * @param float $lat2
-     * @param float $lon2
-     * @return float
+     * Hitung jarak Haversine (meter)
      */
     public function hitungJarak($lat1, $lon1, $lat2, $lon2)
     {
-        $earthRadius = 6371000; // meter
-
+        $earthRadius = 6371000;
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
-
-        $a = sin($dLat / 2) * sin($dLat / 2) +
-            cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-            sin($dLon / 2) * sin($dLon / 2);
-
+        $a = sin($dLat / 2) * sin($dLat / 2)
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
+            * sin($dLon / 2) * sin($dLon / 2);
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
         return $earthRadius * $c;
     }
 
     /**
-     * Cari rute tercepat antara dua halte menggunakan algoritma Dijkstra.
-     * 
-     * CATATAN: Implementasi ini menggunakan SplPriorityQueue yang merupakan max-heap.
-     * Untuk mensimulasikan min-heap (yang dibutuhkan Dijkstra), nilai jarak dimasukkan
-     * sebagai negatif. Ini adalah workaround yang valid dan sudah didokumentasikan.
+     * Cari rute dengan Dijkstra
      *
-     * @param string $stopIdAwal ID halte awal
-     * @param string $stopIdTujuan ID halte tujuan
-     * @return array Daftar ID halte dalam urutan perjalanan (array kosong jika tidak ditemukan)
+     * @param string $stopIdAwal
+     * @param string $stopIdTujuan
+     * @param bool   $modeWaktu  true = Cari 2 (optimasi waktu), false = Cari 1 (optimasi jarak)
+     * @return array
      */
-    public function cariRuteTercepat($stopIdAwal, $stopIdTujuan)
+    public function cariRuteTercepat($stopIdAwal, $stopIdTujuan, $modeWaktu = false)
     {
-        // Ambil graf dari cache (dibangun setiap 24 jam)
-        $graf = Cache::remember('graf_navigasi', 86400, function () {
-            return $this->bangunGraf();
+        $cacheKey = $modeWaktu ? 'graf_navigasi_waktu' : 'graf_navigasi_jarak';
+
+        $grafData = Cache::remember($cacheKey, 86400, function () use ($modeWaktu) {
+            return $this->bangunGrafVirtual($modeWaktu);
         });
 
-        // Validasi node ada di graf
-        if (!isset($graf[$stopIdAwal]) || !isset($graf[$stopIdTujuan])) {
-            return [];
+        $graf = $grafData['graf'];
+        $virtualToReal = $grafData['virtual_to_real'];
+        $realToVirtual = $grafData['real_to_virtual'];
+
+        if (!isset($realToVirtual[$stopIdAwal]) || !isset($realToVirtual[$stopIdTujuan])) {
+            return ['jalur' => [], 'rute_terpakai' => [], 'total_bobot' => 0];
         }
 
-        // Dijkstra Algorithm
+        // Dijkstra
         $jarak = [];
         $sebelumnya = [];
-        $antrian = new \SplPriorityQueue();
+        $antrian = new SplPriorityQueue();
 
         foreach (array_keys($graf) as $node) {
             $jarak[$node] = INF;
             $sebelumnya[$node] = null;
         }
 
-        $jarak[$stopIdAwal] = 0;
-        // Workaround: masukkan nilai negatif agar priority queue berperilaku sebagai min-heap
-        $antrian->insert($stopIdAwal, 0);
+        foreach ($realToVirtual[$stopIdAwal] as $vAwal) {
+            $jarak[$vAwal] = 0;
+            $antrian->insert($vAwal, 0);
+        }
+
+        $tujuanVirtual = null;
 
         while (!$antrian->isEmpty()) {
             $sekarang = $antrian->extract();
 
-            if ($sekarang === $stopIdTujuan) {
+            if (in_array($sekarang, $realToVirtual[$stopIdTujuan])) {
+                $tujuanVirtual = $sekarang;
                 break;
             }
 
-            if (isset($graf[$sekarang])) {
-                foreach ($graf[$sekarang] as $tetangga) {
-                    $alt = $jarak[$sekarang] + $tetangga['bobot'];
+            if (!isset($graf[$sekarang])) continue;
 
-                    if ($alt < $jarak[$tetangga['id']]) {
-                        $jarak[$tetangga['id']] = $alt;
-                        $sebelumnya[$tetangga['id']] = $sekarang;
-                        // Negatif untuk min-heap
-                        $antrian->insert($tetangga['id'], -$alt);
+            foreach ($graf[$sekarang] as $tetangga => $bobot) {
+                $alt = $jarak[$sekarang] + $bobot;
+                if ($alt < $jarak[$tetangga]) {
+                    $jarak[$tetangga] = $alt;
+                    $sebelumnya[$tetangga] = $sekarang;
+                    $antrian->insert($tetangga, -$alt);
+                }
+            }
+        }
+
+        if (!$tujuanVirtual) {
+            return ['jalur' => [], 'rute_terpakai' => [], 'total_bobot' => 0];
+        }
+
+        // Rekonstruksi
+        $jalurVirtual = [];
+        $u = $tujuanVirtual;
+        while ($u !== null) {
+            array_unshift($jalurVirtual, $u);
+            $u = $sebelumnya[$u] ?? null;
+        }
+
+        $jalurAsli = [];
+        $ruteTerpakai = [];
+        foreach ($jalurVirtual as $vNode) {
+            $realId = $virtualToReal[$vNode]['stop_id'];
+            $routeId = $virtualToReal[$vNode]['route_id'];
+            if (empty($jalurAsli) || end($jalurAsli) !== $realId) {
+                $jalurAsli[] = $realId;
+            }
+            $ruteTerpakai[$realId] = $routeId;
+        }
+
+        $totalBobot = $jarak[$tujuanVirtual] ?? 0;
+
+        return [
+            'jalur' => $jalurAsli,
+            'rute_terpakai' => $ruteTerpakai,
+            'total_bobot' => $totalBobot,
+        ];
+    }
+
+    /**
+     * Bangun graf virtual (stop@route) dengan bobot berbasis jarak atau waktu
+     *
+     * @param bool $modeWaktu  true = bobot dalam detik (Cari 2), false = bobot dalam meter (Cari 1)
+     * @return array
+     */
+    private function bangunGrafVirtual($modeWaktu)
+    {
+        $graf = [];
+        $virtualToReal = [];
+        $realToVirtual = [];
+
+        // 1. Koordinat halte
+        $stops = DB::table('tb_stops')->select('stop_id', 'stop_lat', 'stop_lon')->get();
+        $koordinat = [];
+        foreach ($stops as $s) {
+            $koordinat[$s->stop_id] = ['lat' => $s->stop_lat, 'lon' => $s->stop_lon];
+        }
+
+        // 2. Data headway (hanya untuk mode waktu)
+        $headways = [];
+        if ($modeWaktu) {
+            $freqs = DB::table('tb_frequencies')
+                ->select('trip_id', 'headway_secs')
+                ->get();
+            foreach ($freqs as $f) {
+                $headways[$f->trip_id] = (int) $f->headway_secs;
+            }
+        }
+
+        // 3. Ambil segmen perjalanan (stop_sequence berurutan)
+        $segments = DB::table('tb_stop_times as st1')
+            ->join('tb_stop_times as st2', function ($join) {
+                $join->on('st1.trip_id', '=', 'st2.trip_id')
+                    ->on(DB::raw('st1.stop_sequence + 1'), '=', 'st2.stop_sequence');
+            })
+            ->join('tb_trips as t', 'st1.trip_id', '=', 't.trip_id')
+            ->select('st1.stop_id as awal', 'st2.stop_id as tujuan', 't.route_id', 't.trip_id')
+            ->distinct()
+            ->get();
+
+        // 4. Buat edge perjalanan (dalam satu koridor)
+        foreach ($segments as $seg) {
+            $vAwal = $seg->awal . '@' . $seg->route_id;
+            $vTujuan = $seg->tujuan . '@' . $seg->route_id;
+
+            // Simpan mapping ke real ID (stop_id, route_id, trip_id untuk headway)
+            $virtualToReal[$vAwal] = [
+                'stop_id' => $seg->awal,
+                'route_id' => $seg->route_id,
+                'trip_id' => $seg->trip_id,
+            ];
+            $virtualToReal[$vTujuan] = [
+                'stop_id' => $seg->tujuan,
+                'route_id' => $seg->route_id,
+                'trip_id' => $seg->trip_id,
+            ];
+
+            $realToVirtual[$seg->awal][] = $vAwal;
+            $realToVirtual[$seg->tujuan][] = $vTujuan;
+
+            if (!isset($koordinat[$seg->awal]) || !isset($koordinat[$seg->tujuan])) continue;
+
+            $jarak = $this->hitungJarak(
+                $koordinat[$seg->awal]['lat'],
+                $koordinat[$seg->awal]['lon'],
+                $koordinat[$seg->tujuan]['lat'],
+                $koordinat[$seg->tujuan]['lon']
+            );
+
+            // Bobot perjalanan
+            if ($modeWaktu) {
+                // Cari 2: waktu tempuh (detik)
+                $bobot = $jarak / self::BUS_SPEED_MPS;
+            } else {
+                // Cari 1: jarak (meter)
+                $bobot = $jarak;
+            }
+
+            $graf[$vAwal][$vTujuan] = $bobot;
+        }
+
+        // 5. Buat edge transfer antar koridor di halte yang sama
+        foreach ($realToVirtual as $stopId => $vNodes) {
+            $vNodes = array_unique($vNodes);
+            if (count($vNodes) <= 1) continue;
+
+            foreach ($vNodes as $v1) {
+                foreach ($vNodes as $v2) {
+                    if ($v1 === $v2) continue;
+                    if (isset($graf[$v1][$v2])) continue; // sudah ada edge perjalanan
+
+                    if ($modeWaktu) {
+                        // Ambil route_id untuk deteksi keluarga koridor
+                        $routeId1 = $virtualToReal[$v1]['route_id'] ?? '';
+                        $routeId2 = $virtualToReal[$v2]['route_id'] ?? '';
+                        $core1 = $this->getCoreRoute($routeId1);
+                        $core2 = $this->getCoreRoute($routeId2);
+                        $isSameFamily = ($core1 !== null && $core2 !== null && $core1 === $core2);
+
+                        // Ambil trip_id dan headway
+                        $tripId1 = $virtualToReal[$v1]['trip_id'] ?? null;
+                        $tripId2 = $virtualToReal[$v2]['trip_id'] ?? null;
+                        $headway1 = $headways[$tripId1] ?? self::DEFAULT_TRANSFER_WAIT;
+                        $headway2 = $headways[$tripId2] ?? self::DEFAULT_TRANSFER_WAIT;
+
+                        // ========== PERBAIKAN UTAMA DI SINI ==========
+                        if ($isSameFamily) {
+                            // Satu keluarga koridor → tunggu sebentar (40 detik)
+                            $bobotTransfer = 40;
+                        } else {
+                            // Beda keluarga → transfer normal (headway terburuk + jalan kaki)
+                            $bobotTransfer = max($headway1, $headway2) / 2 + 60;
+                        }
+
+                        $graf[$v1][$v2] = $bobotTransfer;
+                    } else {
+                        // Cari 1 (jarak) → tetap 10 meter agar bebas pindah
+                        $graf[$v1][$v2] = 10;
                     }
                 }
             }
         }
 
-        // Susun jalur dari hasil Dijkstra
-        return $this->susunJalur($sebelumnya, $stopIdTujuan);
-    }
-
-    /**
-     * Bangun graf dari database (koneksi antar halte berdasarkan stop_times)
-     * Graf ini bersifat tidak terarah (undirected) dengan bobot jarak Haversine.
-     *
-     * @return array
-     */
-    private function bangunGraf()
-    {
-        $graf = [];
-
-        // Ambil semua koordinat halte
-        $semuaHalte = DB::table('tb_stops')->select('stop_id', 'stop_lat', 'stop_lon')->get();
-        $koordinat = [];
-        foreach ($semuaHalte as $h) {
-            $koordinat[$h->stop_id] = [
-                'lat' => $h->stop_lat,
-                'lon' => $h->stop_lon
-            ];
-        }
-
-        // Ambil semua koneksi antar halte dari stop_times
-        // (halte yang berurutan dalam satu trip)
-        $koneksiHalte = DB::table('tb_stop_times as st1')
-            ->join('tb_stop_times as st2', function ($join) {
-                $join->on('st1.trip_id', '=', 'st2.trip_id')
-                    ->on(DB::raw('st1.stop_sequence + 1'), '=', 'st2.stop_sequence');
-            })
-            ->select('st1.stop_id as awal', 'st2.stop_id as tujuan')
-            ->distinct()
-            ->get();
-
-        foreach ($koneksiHalte as $kon) {
-            if (!isset($koordinat[$kon->awal]) || !isset($koordinat[$kon->tujuan])) {
-                continue;
-            }
-
-            // Hitung bobot = jarak antar halte (meter)
-            $bobot = $this->hitungJarak(
-                $koordinat[$kon->awal]['lat'],
-                $koordinat[$kon->awal]['lon'],
-                $koordinat[$kon->tujuan]['lat'],
-                $koordinat[$kon->tujuan]['lon']
-            );
-
-            // Tambah koneksi (dua arah)
-            if (!isset($graf[$kon->awal])) {
-                $graf[$kon->awal] = [];
-            }
-            $graf[$kon->awal][] = [
-                'id' => $kon->tujuan,
-                'bobot' => $bobot
-            ];
-
-            if (!isset($graf[$kon->tujuan])) {
-                $graf[$kon->tujuan] = [];
-            }
-            $graf[$kon->tujuan][] = [
-                'id' => $kon->awal,
-                'bobot' => $bobot
-            ];
-        }
-
-        return $graf;
-    }
-
-    /**
-     * Susun jalur dari hasil Dijkstra (array previous)
-     *
-     * @param array $sebelumnya
-     * @param string $tujuan
-     * @return array
-     */
-    private function susunJalur($sebelumnya, $tujuan)
-    {
-        $jalur = [];
-        $u = $tujuan;
-
-        while ($u !== null) {
-            array_unshift($jalur, $u);
-            $u = $sebelumnya[$u] ?? null;
-        }
-
-        // Jika jalur hanya berisi 1 elemen (tujuan saja), berarti tidak ditemukan rute
-        if (count($jalur) <= 1) {
-            return [];
-        }
-
-        return $jalur;
+        return [
+            'graf' => $graf,
+            'virtual_to_real' => $virtualToReal,
+            'real_to_virtual' => $realToVirtual,
+        ];
     }
 
     /**
      * Hapus cache graf navigasi
-     *
-     * @return void
      */
     public function clearCache()
     {
-        Cache::forget('graf_navigasi');
+        Cache::forget('graf_navigasi_jarak');
+        Cache::forget('graf_navigasi_waktu');
+    }
+
+    /**
+     * Ambil angka dasar dari route_id (misal 13 dari 13B, 10 dari 10D)
+     */
+    private function getCoreRoute($routeId)
+    {
+        // Ambil angka di awal string (contoh: "13B" -> 13, "10D" -> 10)
+        if (preg_match('/^(\d+)/', $routeId, $matches)) {
+            return (int) $matches[1];
+        }
+        return null; // non-numeric seperti JAK.17, S21, dll
     }
 }

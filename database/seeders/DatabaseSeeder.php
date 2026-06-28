@@ -47,6 +47,10 @@ class DatabaseSeeder extends Seeder
         if ($this->command) $this->command->info('7. Seeding Calendar');
         $this->call(CalendarSeeder::class);
 
+        // 8. Seed Frequencies
+        if ($this->command) $this->command->info('8. Seeding Frequencies');
+        $this->call(FrequencySeeder::class);
+
         if ($this->command) {
             $this->command->line(str_repeat('=', 50));
             $this->command->info('SEMUA SEEDER SELESAI');

@@ -16,7 +16,28 @@ class PencarianRuteService
         $this->navigasiService = $navigasiService;
     }
 
+    /**
+     * Fungsi utama yang dipanggil dari controller
+     * Mendeteksi mode dari request (cari_type=1 atau 2)
+     */
     public function cariRuteOptimal(Stop $asal, Stop $tujuan): array
+    {
+        // Deteksi mode dari request (bisa dari query string atau form)
+        $cariType = request()->input('cari_type', 1);
+        $prioritasTransfer = ($cariType == 2);
+
+        return $this->prosesPencarian($asal, $tujuan, $prioritasTransfer);
+    }
+
+    /**
+     * Proses pencarian dengan mode tertentu
+     *
+     * @param Stop $asal
+     * @param Stop $tujuan
+     * @param bool $prioritasTransfer  true = Cari 2 (minim transfer), false = Cari 1 (jarak terpendek)
+     * @return array
+     */
+    public function prosesPencarian(Stop $asal, Stop $tujuan, bool $prioritasTransfer = false): array
     {
         $waktuMulai = microtime(true);
 
@@ -25,42 +46,58 @@ class PencarianRuteService
             return $this->emptyResult();
         }
 
-        Log::info('Mencari rute', [
-            'dari' => $asal->stop_name . ' (ID: ' . $asal->stop_id . ')',
-            'ke' => $tujuan->stop_name . ' (ID: ' . $tujuan->stop_id . ')'
-        ]);
+        $hasilDijkstra = $this->navigasiService->cariRuteTercepat(
+            $asal->stop_id,
+            $tujuan->stop_id,
+            $prioritasTransfer
+        );
 
-        $jalurId = $this->navigasiService->cariRuteTercepat($asal->stop_id, $tujuan->stop_id);
+        $jalurId = $hasilDijkstra['jalur'];
+        $ruteTerpakai = $hasilDijkstra['rute_terpakai'] ?? [];
 
         if (empty($jalurId)) {
             Log::warning('Tidak ada jalur ditemukan');
             return $this->emptyResult();
         }
 
-        // Data Stops sekali diambil
+        // Ambil data stops
         $stops = Stop::whereIn('stop_id', $jalurId)->get()->keyBy('stop_id');
 
         $rute = $this->rekonstruksiRuteFromStops($jalurId, $stops);
         $totalJarak = $this->hitungTotalJarakFromStops($jalurId, $stops);
 
+        // Hitung jumlah transfer nyata
+        $totalPindah = 0;
+        $prevRoute = null;
+        foreach ($jalurId as $stopId) {
+            $currentRoute = $ruteTerpakai[$stopId] ?? null;
+            if ($currentRoute !== null && $prevRoute !== null && $currentRoute !== $prevRoute) {
+                $totalPindah++;
+            }
+            if ($currentRoute !== null) {
+                $prevRoute = $currentRoute;
+            }
+        }
+
+        // Simpan log
         $this->simpanLog([
             'id_halte_awal' => $asal->stop_id,
             'id_halte_tujuan' => $tujuan->stop_id,
             'waktu_eksekusi_ms' => (microtime(true) - $waktuMulai) * 1000,
             'node_dikunjungi' => count($jalurId),
             'total_jarak' => $totalJarak,
-            'total_waktu' => $totalJarak / 8.33 * 3.6,
-            'total_pindah' => 0, // TODO: hitung pindah koridor jika diperlukan
-            'algoritma' => 'Dijkstra',
+            'total_waktu' => ($totalJarak / 8.33) * 3.6,
+            'total_pindah' => $totalPindah,
+            'algoritma' => $prioritasTransfer ? 'Dijkstra (Prioritas Transfer)' : 'Dijkstra (Jarak Terpendek)',
         ]);
 
         return [
             'rute' => $rute,
             'ringkasan' => [
                 'total_halte' => $rute->count(),
-                'total_waktu' => $totalJarak / 8.33 * 3.6,
-                'total_waktu_menit' => round(($totalJarak / 8.33 * 3.6) / 60, 1),
-                'total_pindah' => 0,
+                'total_waktu' => ($totalJarak / 8.33) * 3.6,
+                'total_waktu_menit' => round((($totalJarak / 8.33) * 3.6) / 60, 1),
+                'total_pindah' => $totalPindah,
                 'total_jarak' => $totalJarak,
                 'total_jarak_km' => round($totalJarak / 1000, 2),
             ]

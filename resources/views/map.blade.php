@@ -44,17 +44,17 @@
                             </div>
 
                             <!-- <div class="row">
-                                                    <div class="col-6">
-                                                        <button class="btn btn-secondary btn-block btn-sm" id="clearBtn" onclick="clearRoute()" disabled>
-                                                            <i class="fas fa-undo"></i> Reset
-                                                        </button>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <button class="btn btn-warning btn-block btn-sm" id="routeBtn" onclick="calculateRoute()" disabled>
-                                                            <i class="fas fa-route"></i> Cari
-                                                        </button>
-                                                    </div>
-                                                </div> -->
+                                                                                                                <div class="col-6">
+                                                                                                                    <button class="btn btn-secondary btn-block btn-sm" id="clearBtn" onclick="clearRoute()" disabled>
+                                                                                                                        <i class="fas fa-undo"></i> Reset
+                                                                                                                    </button>
+                                                                                                                </div>
+                                                                                                                <div class="col-6">
+                                                                                                                    <button class="btn btn-warning btn-block btn-sm" id="routeBtn" onclick="calculateRoute()" disabled>
+                                                                                                                        <i class="fas fa-route"></i> Cari
+                                                                                                                    </button>
+                                                                                                                </div>
+                                                                                                            </div> -->
 
                             <div class="row">
                                 <div class="col-6">
@@ -427,12 +427,17 @@
         let selectingPoi = false;
 
 
-        const allStopsWithRoutes = [];
+        // ===== Gabungkan berdasarkan nama halte + koridor, tambahkan arah =====
+        const uniqueStops = new Map();
+
         routes.forEach(route => {
             route.stops.forEach((stop, index) => {
-                if (stop.lat && stop.lng && !isNaN(stop.lat) && !isNaN(stop.lng)) {
-                    allStopsWithRoutes.push({
-                        id: stop.id,
+                // Kunci = nama halte + koridor (tanpa arah)
+                const key = stop.name + '|' + route.short_name;
+
+                if (!uniqueStops.has(key)) {
+                    uniqueStops.set(key, {
+                        id: stop.id, // simpan stop.id pertama (arah A)
                         name: stop.name,
                         lat: stop.lat,
                         lng: stop.lng,
@@ -440,10 +445,33 @@
                         routeName: `Koridor ${route.short_name}`,
                         routeColor: route.color,
                         stopNumber: index + 1,
-                        searchText: `${stop.name} ${route.short_name} ${route.long_name}`.toLowerCase()
+                        searchText: `${stop.name} ${route.short_name} ${route.long_name}`.toLowerCase(),
+                        // Simpan semua arah
+                        directions: []
                     });
                 }
+
+                // Ambil arah dari long_name (misal "(A)" atau "(B)")
+                const directionMatch = route.long_name.match(/\([A-Z]\)/);
+                const direction = directionMatch ? directionMatch[0] : '';
+
+                // Tambahkan arah ke daftar directions
+                const entry = uniqueStops.get(key);
+                if (!entry.directions.includes(direction)) {
+                    entry.directions.push(direction);
+                }
+
+                // Simpan juga stop_id untuk arah ini (opsional, untuk perhitungan)
+                // entry.id bisa tetap pakai stop.id pertama, atau kita bisa simpan array
             });
+        });
+
+        // Konversi Map ke array, dengan displayName yang menyertakan arah
+        const allStopsWithRoutes = Array.from(uniqueStops.values()).map(entry => {
+            // Buat display name dengan arah
+            const directionStr = entry.directions.length > 0 ? entry.directions.join(' / ') : '';
+            entry.displayName = `${entry.name} - ${entry.routeName} ${directionStr}`.trim();
+            return entry;
         });
 
         function haversineDistance(lat1, lon1, lat2, lon2) {
