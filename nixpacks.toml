@@ -1,0 +1,10 @@
+[phases.setup]
+nixPkgs = [
+    "php83",
+    "php83Extensions.gd",
+    "php83Extensions.zip",
+    "php83Extensions.intl",
+    "php83Extensions.bcmath",
+    "php83Extensions.pdo_mysql",
+    "nodejs_22"
+]
