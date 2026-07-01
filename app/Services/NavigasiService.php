@@ -151,15 +151,26 @@ class NavigasiService
         }
 
         // 3. Ambil segmen perjalanan (stop_sequence berurutan)
+        // Menggunakan subquery untuk mengunci hanya 1 trip_id terkecil per route_id & direction_id
+        // Ini menyatukan kembali pipa jalur makro (seperti Koridor 1, 10, & 7A) yang sempat patah
+        $subQueryTrips = DB::table('tb_trips')
+            ->select('route_id', DB::raw('MIN(trip_id) as trip_id'))
+            ->groupBy('route_id', 'direction_id');
+
         $segments = DB::table('tb_stop_times as st1')
             ->join('tb_stop_times as st2', function ($join) {
                 $join->on('st1.trip_id', '=', 'st2.trip_id')
                     ->on(DB::raw('st1.stop_sequence + 1'), '=', 'st2.stop_sequence');
             })
+            ->joinSub($subQueryTrips, 't_valid', function ($join) {
+                $join->on('st1.trip_id', '=', 't_valid.trip_id');
+            })
             ->join('tb_trips as t', 'st1.trip_id', '=', 't.trip_id')
-            ->select('st1.stop_id as awal', 'st2.stop_id as tujuan', 't.route_id', 't.trip_id')
+            ->select('st1.stop_id as awal', 'st2.stop_id as tujuan', 't.route_id', 'st1.trip_id')
             ->distinct()
             ->get();
+        // =========================================================================
+
 
         // 4. Buat edge perjalanan (dalam satu koridor)
         foreach ($segments as $seg) {
@@ -202,7 +213,7 @@ class NavigasiService
             $graf[$vAwal][$vTujuan] = $bobot;
         }
 
-        // 5. Buat edge transfer antar koridor di halte yang sama
+        // 5. Buat edge transfer antar koridor di halte yang sama (DIPERBAIKI UNTUK RUTE PENDEK)
         foreach ($realToVirtual as $stopId => $vNodes) {
             $vNodes = array_unique($vNodes);
             if (count($vNodes) <= 1) continue;
@@ -210,35 +221,37 @@ class NavigasiService
             foreach ($vNodes as $v1) {
                 foreach ($vNodes as $v2) {
                     if ($v1 === $v2) continue;
-                    if (isset($graf[$v1][$v2])) continue; // sudah ada edge perjalanan
+
+                    // Ambil route_id untuk deteksi keluarga koridor
+                    $routeId1 = $virtualToReal[$v1]['route_id'] ?? '';
+                    $routeId2 = $virtualToReal[$v2]['route_id'] ?? '';
+                    $core1 = $this->getCoreRoute($routeId1);
+                    $core2 = $this->getCoreRoute($routeId2);
+                    $isSameFamily = ($core1 !== null && $core2 !== null && $core1 === $core2);
+
+                    // JANGAN TIMPA jika jalur utama asli antar peron sudah ada di graf
+                    if (isset($graf[$v1][$v2]) && !$isSameFamily) {
+                        continue;
+                    }
 
                     if ($modeWaktu) {
-                        // Ambil route_id untuk deteksi keluarga koridor
-                        $routeId1 = $virtualToReal[$v1]['route_id'] ?? '';
-                        $routeId2 = $virtualToReal[$v2]['route_id'] ?? '';
-                        $core1 = $this->getCoreRoute($routeId1);
-                        $core2 = $this->getCoreRoute($routeId2);
-                        $isSameFamily = ($core1 !== null && $core2 !== null && $core1 === $core2);
-
-                        // Ambil trip_id dan headway
                         $tripId1 = $virtualToReal[$v1]['trip_id'] ?? null;
                         $tripId2 = $virtualToReal[$v2]['trip_id'] ?? null;
                         $headway1 = $headways[$tripId1] ?? self::DEFAULT_TRANSFER_WAIT;
                         $headway2 = $headways[$tripId2] ?? self::DEFAULT_TRANSFER_WAIT;
 
-                        // ========== PERBAIKAN UTAMA DI SINI ==========
                         if ($isSameFamily) {
-                            // Satu keluarga koridor → tunggu sebentar (40 detik)
-                            $bobotTransfer = 40;
+                            $bobotTransfer = 0;
                         } else {
-                            // Beda keluarga → transfer normal (headway terburuk + jalan kaki)
                             $bobotTransfer = max($headway1, $headway2) / 2 + 60;
                         }
-
                         $graf[$v1][$v2] = $bobotTransfer;
                     } else {
-                        // Cari 1 (jarak) → tetap 10 meter agar bebas pindah
-                        $graf[$v1][$v2] = 10;
+                        if ($isSameFamily) {
+                            $graf[$v1][$v2] = 0;
+                        } else {
+                            $graf[$v1][$v2] = 50;
+                        }
                     }
                 }
             }
@@ -263,12 +276,12 @@ class NavigasiService
     /**
      * Ambil angka dasar dari route_id (misal 13 dari 13B, 10 dari 10D)
      */
-    private function getCoreRoute($routeId)
+    // SEBELUMNYA: private function getCoreRoute($routeId)
+    public function getCoreRoute($routeId)
     {
-        // Ambil angka di awal string (contoh: "13B" -> 13, "10D" -> 10)
         if (preg_match('/^(\d+)/', $routeId, $matches)) {
             return (int) $matches[1];
         }
-        return null; // non-numeric seperti JAK.17, S21, dll
+        return null;
     }
 }

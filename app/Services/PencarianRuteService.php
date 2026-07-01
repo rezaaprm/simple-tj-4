@@ -68,14 +68,19 @@ class PencarianRuteService
 
         // Hitung jumlah transfer nyata
         $totalPindah = 0;
-        $prevRoute = null;
+        $prevRouteId = null;
         foreach ($jalurId as $stopId) {
-            $currentRoute = $ruteTerpakai[$stopId] ?? null;
-            if ($currentRoute !== null && $prevRoute !== null && $currentRoute !== $prevRoute) {
-                $totalPindah++;
+            $currentRouteId = $ruteTerpakai[$stopId] ?? null;
+            if ($currentRouteId && $prevRouteId && $currentRouteId !== $prevRouteId) {
+                $corePrev = $this->navigasiService->getCoreRoute($prevRouteId);
+                $coreCurrent = $this->navigasiService->getCoreRoute($currentRouteId);
+                // Jika keduanya tidak null dan sama, abaikan
+                if (!($corePrev !== null && $coreCurrent !== null && $corePrev === $coreCurrent)) {
+                    $totalPindah++;
+                }
             }
-            if ($currentRoute !== null) {
-                $prevRoute = $currentRoute;
+            if ($currentRouteId) {
+                $prevRouteId = $currentRouteId;
             }
         }
 

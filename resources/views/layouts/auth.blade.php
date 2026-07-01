@@ -108,6 +108,15 @@
                             untuk Jakarta yang Lebih Baik
                         </p>
                     </div>
+
+                    {{-- DISCLAIMER --}}
+                    <div class="text-center mt-4 pt-1">
+                        <p style="font-size: 0.95rem; color: #ffc107; font-style: italic; font-weight: 500;">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Disclaimer:</strong> Ini hanya prototype untuk keperluan demo.
+                            Untuk informasi resmi, gunakan aplikasi TransJakarta atau Google Maps.
+                        </p>
+                    </div>
                 </div>
 
                 <!-- Right Side - Form -->

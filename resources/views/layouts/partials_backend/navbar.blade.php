@@ -1,37 +1,46 @@
-<ul class="navbar-nav mr-auto">
-    <li class="nav-item d-none d-sm-inline-block">
-        @if (Auth::guard('admin')->check())
-            <a href="#" class="nav-link text-dark">
-                <i class="fas fa-user-shield"></i> Admin: {{ Auth::guard('admin')->user()->nama }}
+    <!-- Left navbar links -->
+    <ul class="navbar-nav">
+        <li class="nav-item">
+            <a class="nav-link" data-widget="pushmenu" href="#" role="button">
+                <i class="fas fa-bars"></i>
             </a>
-        @elseif(Auth::guard('users')->check())
-            <a href="#" class="nav-link text-dark">
-                <i class="fas fa-user"></i> User: {{ Auth::guard('users')->user()->nama }}
-            </a>
-        @else
-            <a href="{{ route('login') }}" class="nav-link text-dark">
-                <i class="fas fa-sign-in-alt"></i> Login
-            </a>
-        @endif
-    </li>
-</ul>
-<ul class="navbar-nav ml-auto">
-    @if (Auth::guard('admin')->check() || Auth::guard('users')->check())
-        <li class="nav-item d-none d-sm-inline-block">
-            <form action="{{ route('logout') }}" method="POST" class="d-inline">
-                @csrf
-                <button type="submit" class="btn btn-link nav-link text-danger" style="display: inline; cursor: pointer;">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
-            </form>
         </li>
-    @endif
-    <li class="nav-item d-none d-sm-inline-block">
-        <a href="{{ route('frontend.explore') }}" class="nav-link text-success">
-            <i class="fas fa-globe"></i> Menu Utama
-        </a>
-    </li>
-    <li class="nav-item d-none d-sm-inline-block">
-        <a href="#" class="nav-link text-dark">Sistem Transportasi Jakarta</a>
-    </li>
-</ul>
+    </ul>
+
+    <ul class="navbar-nav mr-auto">
+        <li class="nav-item d-none d-sm-inline-block">
+            @if (Auth::guard('admin')->check())
+                <a href="#" class="nav-link text-dark">
+                    <i class="fas fa-user-shield"></i> Admin: {{ Auth::guard('admin')->user()->nama }}
+                </a>
+            @elseif(Auth::guard('users')->check())
+                <a href="#" class="nav-link text-dark">
+                    <i class="fas fa-user"></i> User: {{ Auth::guard('users')->user()->nama }}
+                </a>
+            @else
+                <a href="{{ route('login') }}" class="nav-link text-dark">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+            @endif
+        </li>
+    </ul>
+    <ul class="navbar-nav ml-auto">
+        @if (Auth::guard('admin')->check() || Auth::guard('users')->check())
+            <li class="nav-item d-none d-sm-inline-block">
+                <form action="{{ route('logout') }}" method="POST" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-link nav-link text-danger" style="display: inline; cursor: pointer;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </form>
+            </li>
+        @endif
+        <li class="nav-item d-none d-sm-inline-block">
+            <a href="{{ route('frontend.explore') }}" class="nav-link text-success">
+                <i class="fas fa-globe"></i> Menu Utama
+            </a>
+        </li>
+        <li class="nav-item d-none d-sm-inline-block">
+            <a href="#" class="nav-link text-dark">Sistem Transportasi Jakarta</a>
+        </li>
+    </ul>
