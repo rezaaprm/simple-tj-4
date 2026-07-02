@@ -13,8 +13,17 @@ class GtfsCacheService
      *
      * @return array
      */
+    // public function getRoutesWithStopsAndShapes()
+    // {
+    //     return Cache::remember('gtfs_routes_final', 86400, function () {
+    //         return $this->buildRoutesData();
+    //     });
+    // }
+
     public function getRoutesWithStopsAndShapes()
     {
+        dd('A');
+
         return Cache::remember('gtfs_routes_final', 86400, function () {
             return $this->buildRoutesData();
         });
