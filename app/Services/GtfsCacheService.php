@@ -34,8 +34,6 @@ class GtfsCacheService
      */
     private function buildRoutesData()
     {
-        dd('B1');
-
         // 1. Ambil semua rute
         $allRoutes = DB::table('tb_routes')->get();
 
@@ -132,6 +130,9 @@ class GtfsCacheService
             ->orderBy('shape_id')
             ->orderBy('shape_pt_sequence')
             ->get();
+
+        dd('SHAPE OK', $shapes->count());
+
         $shapePoints = [];
         foreach ($shapes as $shape) {
             if ($shape->shape_pt_lat == 0 || $shape->shape_pt_lon == 0) continue;
