@@ -20,8 +20,8 @@ class TransportasiController extends Controller
             $startTime = microtime(true);
 
             // Ambil data dari cache
-            $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
-
+            // $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
+            $routesData = [];
             // DEBUG: Cek apakah data terisi
             if (empty($routesData)) {
                 Log::error('routesData kosong!');
