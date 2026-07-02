@@ -103,21 +103,42 @@ class GtfsCacheService
         }
 
         // 5. Ambil semua stop times
-        $stopTimes = DB::table('tb_stop_times')->get();
+        // $stopTimes = DB::table('tb_stop_times')->get();
+        // $tripToStops = [];
+        // foreach ($stopTimes as $st) {
+        //     $tripToStops[$st->trip_id][$st->stop_sequence] = $st->stop_id;
+        // }
+        // foreach ($tripToStops as $tripId => $stops) {
+        //     ksort($tripToStops[$tripId]);
+        // }
+
+        // // Mapping shape_dist_traveled per trip & sequence
+        // $tripShapeDist = [];
+        // foreach ($stopTimes as $st) {
+        //     if ($st->shape_dist_traveled !== null) {
+        //         $tripShapeDist[$st->trip_id][$st->stop_sequence] = (float) $st->shape_dist_traveled;
+        //     }
+        // }
+
+        // 5. Ambil semua stop times - PAKAI CHUNK (24.567 baris aman)
         $tripToStops = [];
-        foreach ($stopTimes as $st) {
-            $tripToStops[$st->trip_id][$st->stop_sequence] = $st->stop_id;
-        }
+        $tripShapeDist = [];
+
+        DB::table('tb_stop_times')
+            ->orderBy('trip_id')
+            ->orderBy('stop_sequence')
+            ->chunk(5000, function ($stopTimesChunk) use (&$tripToStops, &$tripShapeDist) {
+                foreach ($stopTimesChunk as $st) {
+                    $tripToStops[$st->trip_id][$st->stop_sequence] = $st->stop_id;
+                    if ($st->shape_dist_traveled !== null) {
+                        $tripShapeDist[$st->trip_id][$st->stop_sequence] = (float) $st->shape_dist_traveled;
+                    }
+                }
+            });
+
+        // Sort sequence tetap sama
         foreach ($tripToStops as $tripId => $stops) {
             ksort($tripToStops[$tripId]);
-        }
-
-        // Mapping shape_dist_traveled per trip & sequence
-        $tripShapeDist = [];
-        foreach ($stopTimes as $st) {
-            if ($st->shape_dist_traveled !== null) {
-                $tripShapeDist[$st->trip_id][$st->stop_sequence] = (float) $st->shape_dist_traveled;
-            }
         }
 
         // 6. Ambil semua shape points (diurutkan)
@@ -134,12 +155,14 @@ class GtfsCacheService
         //     ];
         // }
 
+        // 6. Ambil semua shape points - PAKAI CHUNK (218.833 titik aman)
         $shapePoints = [];
+
         DB::table('tb_shapes')
             ->orderBy('shape_id')
             ->orderBy('shape_pt_sequence')
-            ->chunk(5000, function ($shapes) use (&$shapePoints) {
-                foreach ($shapes as $shape) {
+            ->chunk(5000, function ($shapesChunk) use (&$shapePoints) {
+                foreach ($shapesChunk as $shape) {
                     if ($shape->shape_pt_lat == 0 || $shape->shape_pt_lon == 0) continue;
                     $shapePoints[$shape->shape_id][$shape->shape_pt_sequence] = [
                         (float) $shape->shape_pt_lat,
@@ -147,7 +170,6 @@ class GtfsCacheService
                     ];
                 }
             });
-        // then ksort and array_values as before
 
         foreach ($shapePoints as $shapeId => $points) {
             ksort($shapePoints[$shapeId]);
