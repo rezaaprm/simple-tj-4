@@ -58,8 +58,6 @@ class TransportasiController extends Controller
 
     public function indeksPeta()
     {
-        dd('1');
-
         $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
 
         dd('2');
