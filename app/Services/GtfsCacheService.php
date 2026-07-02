@@ -22,7 +22,7 @@ class GtfsCacheService
 
     public function getRoutesWithStopsAndShapes()
     {
-        dd(Cache::has('gtfs_routes_final'));
+        return $this->buildRoutesData();
     }
 
     /**
@@ -34,6 +34,8 @@ class GtfsCacheService
      */
     private function buildRoutesData()
     {
+        dd('B1');
+
         // 1. Ambil semua rute
         $allRoutes = DB::table('tb_routes')->get();
 
