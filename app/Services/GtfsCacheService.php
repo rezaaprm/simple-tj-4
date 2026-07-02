@@ -13,16 +13,11 @@ class GtfsCacheService
      *
      * @return array
      */
-    // public function getRoutesWithStopsAndShapes()
-    // {
-    //     return Cache::remember('gtfs_routes_final', 86400, function () {
-    //         return $this->buildRoutesData();
-    //     });
-    // }
-
     public function getRoutesWithStopsAndShapes()
     {
-        return $this->buildRoutesData();
+        return Cache::remember('gtfs_routes_final', 86400, function () {
+            return $this->buildRoutesData();
+        });
     }
 
     /**
@@ -126,21 +121,33 @@ class GtfsCacheService
         }
 
         // 6. Ambil semua shape points (diurutkan)
-        $shapes = DB::table('tb_shapes')
-            ->orderBy('shape_id')
-            ->orderBy('shape_pt_sequence')
-            ->get();
-
-        dd('SHAPE OK', $shapes->count());
+        // $shapes = DB::table('tb_shapes')
+        //     ->orderBy('shape_id')
+        //     ->orderBy('shape_pt_sequence')
+        //     ->get();
+        // $shapePoints = [];
+        // foreach ($shapes as $shape) {
+        //     if ($shape->shape_pt_lat == 0 || $shape->shape_pt_lon == 0) continue;
+        //     $shapePoints[$shape->shape_id][$shape->shape_pt_sequence] = [
+        //         (float) $shape->shape_pt_lat,
+        //         (float) $shape->shape_pt_lon
+        //     ];
+        // }
 
         $shapePoints = [];
-        foreach ($shapes as $shape) {
-            if ($shape->shape_pt_lat == 0 || $shape->shape_pt_lon == 0) continue;
-            $shapePoints[$shape->shape_id][$shape->shape_pt_sequence] = [
-                (float) $shape->shape_pt_lat,
-                (float) $shape->shape_pt_lon
-            ];
-        }
+        DB::table('tb_shapes')
+            ->orderBy('shape_id')
+            ->orderBy('shape_pt_sequence')
+            ->chunk(5000, function ($shapes) use (&$shapePoints) {
+                foreach ($shapes as $shape) {
+                    if ($shape->shape_pt_lat == 0 || $shape->shape_pt_lon == 0) continue;
+                    $shapePoints[$shape->shape_id][$shape->shape_pt_sequence] = [
+                        (float) $shape->shape_pt_lat,
+                        (float) $shape->shape_pt_lon
+                    ];
+                }
+            });
+        // then ksort and array_values as before
 
         foreach ($shapePoints as $shapeId => $points) {
             ksort($shapePoints[$shapeId]);

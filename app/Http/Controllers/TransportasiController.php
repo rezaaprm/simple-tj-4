@@ -14,57 +14,46 @@ class TransportasiController extends Controller
         $this->gtfsCache = $gtfsCache;
     }
 
-    // public function indeksPeta()
-    // {
-    //     try {
-    //         $startTime = microtime(true);
-
-    //         // Ambil data dari cache
-    //         $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
-
-    //         // DEBUG: Cek apakah data terisi
-    //         if (empty($routesData)) {
-    //             Log::error('routesData kosong!');
-    //         } else {
-    //             Log::info('routesData terisi: ' . count($routesData) . ' rute');
-    //         }
-
-    //         $totalRoutes = count($routesData);
-    //         $totalStops = 0;
-
-    //         foreach ($routesData as $route) {
-    //             $totalStops += count($route['stops']);
-    //         }
-
-    //         $loadTime = round(microtime(true) - $startTime, 2);
-
-    //         return view('map', [
-    //             'routes' => $routesData,
-    //             'totalRoutes' => $totalRoutes,
-    //             'totalStops' => $totalStops,
-    //             'loadTime' => $loadTime
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('TransportasiController error: ' . $e->getMessage());
-
-    //         return view('map', [
-    //             'routes' => [],
-    //             'totalRoutes' => 0,
-    //             'totalStops' => 0,
-    //             'error' => $e->getMessage()
-    //         ]);
-    //     }
-    // }
-
     public function indeksPeta()
     {
-        $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
+        try {
+            $startTime = microtime(true);
 
-        dd('2');
+            // Ambil data dari cache
+            $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
 
-        return view('map', [
-            'routes' => $routesData,
-        ]);
+            // DEBUG: Cek apakah data terisi
+            if (empty($routesData)) {
+                Log::error('routesData kosong!');
+            } else {
+                Log::info('routesData terisi: ' . count($routesData) . ' rute');
+            }
+
+            $totalRoutes = count($routesData);
+            $totalStops = 0;
+
+            foreach ($routesData as $route) {
+                $totalStops += count($route['stops']);
+            }
+
+            $loadTime = round(microtime(true) - $startTime, 2);
+
+            return view('map', [
+                'routes' => $routesData,
+                'totalRoutes' => $totalRoutes,
+                'totalStops' => $totalStops,
+                'loadTime' => $loadTime
+            ]);
+        } catch (\Exception $e) {
+            Log::error('TransportasiController error: ' . $e->getMessage());
+
+            return view('map', [
+                'routes' => [],
+                'totalRoutes' => 0,
+                'totalStops' => 0,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     public function getRoutesJson()
