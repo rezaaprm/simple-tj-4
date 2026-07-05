@@ -83,7 +83,7 @@ class TransportasiController extends Controller
             $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
 
             $allStops = [];
-            $uniqueIds = []; // Gunakan array asosiatif untuk lookup cepat
+            $uniqueIds = []; // array asosiatif untuk lookup cepat
 
             foreach ($routesData as $route) {
                 foreach ($route['stops'] as $stop) {

@@ -11,7 +11,6 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\CheckImportStatus::class,
         \App\Console\Commands\ClearAllCache::class,
         \App\Console\Commands\ImportShapesOnly::class,
-        // TAMBAHKAN INI
         \App\Console\Commands\GenerateStaticPeta::class,
     ];
 

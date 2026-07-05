@@ -12,7 +12,7 @@ class HalteController extends Controller
     {
         $halte = Stop::orderBy('stop_name')->paginate(100);
 
-        // Ambil SEMUA data halte untuk map seperti di Projek 5
+        // Ambil semua data halte untuk map
         $allStops = Stop::select('stop_id', 'stop_name', 'stop_lat', 'stop_lon')
             ->orderBy('stop_name')
             ->get()

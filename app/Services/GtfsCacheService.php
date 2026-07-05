@@ -55,7 +55,6 @@ class GtfsCacheService
             $today = strtolower(date('l'));
             $todayDate = date('Ymd');
 
-            // Mengambil service_id yang valid & aktif pada hari ini
             $activeServices = DB::table('tb_calendar')
                 ->where($today, '=', 1)
                 ->where('start_date', '<=', $todayDate)
@@ -63,31 +62,31 @@ class GtfsCacheService
                 ->pluck('service_id')
                 ->toArray();
 
+            // Pilih satu trip_id per route_id & direction_id
             $allTrips = DB::table('tb_trips')
-                ->select('route_id', 'direction_id', 'trip_id', 'service_id')
+                ->select('route_id', 'direction_id', DB::raw('MAX(trip_id) as trip_id'))
                 ->whereIn('service_id', $activeServices)
+                ->groupBy('route_id', 'direction_id')
                 ->get();
 
-            // Fallback Pengaman: Jika database calendar Anda belum lengkap/seeder bermasalah,
-            // jangan biarkan aplikasi mogok dan menghasilkan data kosong.
+            // Fallback jika kosong
             if ($allTrips->isEmpty()) {
                 $allTrips = DB::table('tb_trips')
-                    ->select('route_id', 'direction_id', 'trip_id')
+                    ->select('route_id', 'direction_id', DB::raw('MAX(trip_id) as trip_id'))
+                    ->groupBy('route_id', 'direction_id')
                     ->get();
             }
         } else {
             $allTrips = DB::table('tb_trips')
-                ->select('route_id', 'direction_id', 'trip_id')
+                ->select('route_id', 'direction_id', DB::raw('MAX(trip_id) as trip_id'))
+                ->groupBy('route_id', 'direction_id')
                 ->get();
         }
 
         foreach ($allTrips as $trip) {
             $direction = $trip->direction_id ?? '0';
             $key = $trip->route_id . '_' . $direction;
-            if (!isset($routeToTrips[$key])) {
-                $routeToTrips[$key] = [];
-            }
-            $routeToTrips[$key][] = $trip->trip_id;
+            $routeToTrips[$key] = [$trip->trip_id];
         }
 
         // 4. Ambil semua stops
@@ -292,5 +291,35 @@ class GtfsCacheService
     public function clearCache()
     {
         Cache::forget('gtfs_routes_final');
+    }
+
+    /**
+     * Ambil shape points berdasarkan route_id (mengambil satu trip pertama)
+     *
+     * @param string $routeId
+     * @return array|null
+     */
+    public function getShapeByRouteId($routeId)
+    {
+        // Menggunakan DB table agar konsisten dengan metode buildRoutesData Anda
+        $trip = DB::table('tb_trips')->where('route_id', $routeId)->first();
+
+        if (!$trip || !$trip->shape_id) {
+            return null;
+        }
+
+        $shapes = DB::table('tb_shapes')
+            ->where('shape_id', $trip->shape_id)
+            ->orderBy('shape_pt_sequence')
+            ->get();
+
+        if ($shapes->isEmpty()) {
+            return null;
+        }
+
+        return $shapes->map(fn($s) => [
+            (float) $s->shape_pt_lat,
+            (float) $s->shape_pt_lon
+        ])->toArray();
     }
 }

@@ -29,19 +29,20 @@ class PencarianLogApiController extends Controller
 
             // Ambil user_id dari guard yang sedang login (jika ada)
             $userId = null;
-            if (auth()->guard('users')->check()) {
-                $userId = auth()->guard('users')->id();
-            } elseif (auth()->guard('admin')->check()) {
-                $userId = auth()->guard('admin')->id();
-            } else {
-                if (auth()->check()) {
-                    $user = auth()->user();
+            $guards = ['users', 'admin', 'web']; // tambahkan guard yang mungkin
+
+            foreach ($guards as $guard) {
+                if (auth()->guard($guard)->check()) {
+                    $user = auth()->guard($guard)->user();
                     if ($user && $user->role === 'users') {
                         $userId = $user->id_users ?? $user->id;
+                    } else {
+                        // Jika admin, tetap ambil id-nya (atau sesuai kebutuhan)
+                        $userId = $user->id_users ?? $user->id;
                     }
+                    break;
                 }
             }
-            \Illuminate\Support\Facades\Log::info('Saving log with user_id: ' . ($userId ?? 'NULL'));
 
             $log = PencarianLog::create([
                 'user_id' => $userId,

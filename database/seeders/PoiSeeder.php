@@ -11,7 +11,7 @@ class PoiSeeder extends Seeder
 {
     public function run()
     {
-        // Gunakan file CSV (bukan Excel)
+        // Pakai file CSV
         $filePath = storage_path('app/poi_jakarta.csv');
 
         if (!file_exists($filePath)) {

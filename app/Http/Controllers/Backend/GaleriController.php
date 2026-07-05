@@ -54,7 +54,7 @@ class GaleriController extends Controller
             'gambar' => $namaFile,
         ]);
 
-        return redirect()->route('galeri.index')->with('success', 'Data berhasil disimpan');
+        return redirect()->route('admin.galeri.index')->with('success', 'Data berhasil disimpan');
     }
 
     /**
@@ -105,7 +105,7 @@ class GaleriController extends Controller
             'gambar' => $namaFile,
         ]);
 
-        return redirect()->route('galeri.index')->with('success', 'Data berhasil diupdate');
+        return redirect()->route('admin.galeri.index')->with('success', 'Data berhasil diupdate');
     }
 
     /**
@@ -126,6 +126,6 @@ class GaleriController extends Controller
         $data = Galeri::findOrFail($id);
         $data->delete();
 
-        return redirect()->route('galeri.index')->with('success', 'Data dihapus');
+        return redirect()->route('admin.galeri.index')->with('success', 'Data dihapus');
     }
 }

@@ -60,7 +60,7 @@ class KolaborasiController extends Controller
             'gambar' => $namaFile,
         ]);
 
-        return redirect()->route('kolaborasi.index')->with('success', 'Data berhasil disimpan');
+        return redirect()->route('admin.kolaborasi.index')->with('success', 'Data berhasil disimpan');
     }
 
     /**
@@ -122,7 +122,7 @@ class KolaborasiController extends Controller
             'gambar' => $namaFile,
         ]);
 
-        return redirect()->route('kolaborasi.index')->with('success', 'Data berhasil diupdate');
+        return redirect()->route('admin.kolaborasi.index')->with('success', 'Data berhasil diupdate');
     }
 
     /**
@@ -148,6 +148,6 @@ class KolaborasiController extends Controller
 
         $data->delete();
 
-        return redirect()->route('kolaborasi.index')->with('success', 'Data dihapus');
+        return redirect()->route('admin.kolaborasi.index')->with('success', 'Data dihapus');
     }
 }

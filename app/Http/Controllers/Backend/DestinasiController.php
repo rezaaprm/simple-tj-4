@@ -64,7 +64,7 @@ class DestinasiController extends Controller
             'gambar' => $namaFile,
         ]);
 
-        return redirect()->route('destinasi.index')->with('success', 'Data berhasil disimpan');
+        return redirect()->route('admin.destinasi.index')->with('success', 'Data berhasil disimpan');
     }
 
     /**
@@ -130,7 +130,7 @@ class DestinasiController extends Controller
             'gambar' => $namaFile,
         ]);
 
-        return redirect()->route('destinasi.index')->with('success', 'Data berhasil diupdate');
+        return redirect()->route('admin.destinasi.index')->with('success', 'Data berhasil diupdate');
     }
 
     /**
@@ -158,6 +158,6 @@ class DestinasiController extends Controller
 
         $data->delete();
 
-        return redirect()->route('destinasi.index')->with('success', 'Data berhasil dihapus');
+        return redirect()->route('admin.destinasi.index')->with('success', 'Data berhasil dihapus');
     }
 }

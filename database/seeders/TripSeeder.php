@@ -22,9 +22,6 @@ class TripSeeder extends Seeder
             return;
         }
 
-        // HAPUS BARIS INI!
-        // DB::table('tb_trips')->truncate();
-
         $csv = Reader::createFromPath($path, 'r');
         $csv->setHeaderOffset(0);
 

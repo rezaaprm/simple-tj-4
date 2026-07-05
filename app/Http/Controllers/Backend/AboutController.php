@@ -42,7 +42,7 @@ class AboutController extends Controller
         $validation = $request->all();
 
         About::create($validation);
-        return redirect()->route('about.index')->with('success', 'Data Berhasil Disimpan');
+        return redirect()->route('admin.about.index')->with('success', 'Data Berhasil Disimpan');
     }
 
     /**
@@ -80,7 +80,7 @@ class AboutController extends Controller
         $validation = $request->all();
 
         $data->update($validation);
-        return redirect()->route('about.index')->with('success', 'Data Berhasil Disimpan');
+        return redirect()->route('admin.about.index')->with('success', 'Data Berhasil Disimpan');
     }
 
     /**
@@ -102,6 +102,6 @@ class AboutController extends Controller
         $data = About::findOrFail($id);
         $data->delete();
 
-        return redirect()->route('about.index')->with('success', 'Data Berhasil Dihapus');
+        return redirect()->route('admin.about.index')->with('success', 'Data Berhasil Dihapus');
     }
 }

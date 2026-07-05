@@ -23,8 +23,6 @@ class StopTimeSeeder extends Seeder
         }
 
         // 
-        // DB::table('tb_stop_times')->truncate();
-
         $csv = Reader::createFromPath($path, 'r');
         $csv->setHeaderOffset(0);
 

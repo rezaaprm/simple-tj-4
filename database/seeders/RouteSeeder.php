@@ -22,9 +22,6 @@ class RouteSeeder extends Seeder
             return;
         }
 
-        // HAPUS BARIS INI - JANGAN TRUNCATE!
-        // DB::table('tb_routes')->truncate();
-
         // Gunakan insertOrIgnore agar tidak error jika data sudah ada
         $csv = Reader::createFromPath($path, 'r');
         $csv->setHeaderOffset(0);

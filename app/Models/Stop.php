@@ -33,7 +33,7 @@ class Stop extends Model
      */
     public static function findNearest($lat, $lng, $radius = 5000)
     {
-        // Gunakan formula Haversine di SQL untuk menghitung jarak
+        // Formula Haversine di SQL untuk menghitung jarak
         return self::select('*')
             ->selectRaw(
                 '(6371 * acos(cos(radians(?)) * cos(radians(stop_lat)) * cos(radians(stop_lon) - radians(?)) + sin(radians(?)) * sin(radians(stop_lat)))) as distance_km',

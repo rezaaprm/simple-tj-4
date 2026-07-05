@@ -12,7 +12,7 @@
 
 <nav class="mt-2">
     <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
-        <!-- Dashboard (hanya untuk admin dan user yang sudah login) -->
+        <!-- Dashboard hanya untuk admin dan user yang sudah login -->
         @if (Auth::guard('admin')->check())
             <li class="nav-item">
                 <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
@@ -29,7 +29,17 @@
             </li>
         @endif
 
-        <!-- Peta Rute TJ (bisa diakses semua yang login, arahkan ke route publik atau user/admin sesuai) -->
+        <!-- ===== MENU ALGORITMA (khusus admin) ===== -->
+        @if (Auth::guard('admin')->check())
+            <li class="nav-item">
+                <a href="{{ route('admin.algoritma') }}" class="nav-link {{ request()->routeIs('admin.algoritma') ? 'active' : '' }}">
+                    <i class="nav-icon fas fa-cogs"></i>
+                    <p>Algoritma</p>
+                </a>
+            </li>
+        @endif
+
+        <!-- Peta Rute TJ (bisa diakses semua yang login) -->
         <li class="nav-item">
             <a href="{{ route('public.map') }}" class="nav-link {{ request()->routeIs('public.map', 'admin.transjakarta.map') ? 'active' : '' }}">
                 <i class="nav-icon fas fa-map"></i>

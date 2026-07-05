@@ -29,7 +29,7 @@ class ClearAllCache extends Command
 
     public function handle()
     {
-        $this->info('🧹 Membersihkan semua cache...');
+        $this->info('Membersihkan semua cache...');
 
         $this->gtfsCache->clearCache();
         $this->pencarianRute->clearCache();
@@ -38,7 +38,7 @@ class ClearAllCache extends Command
         // Juga hapus cache Laravel umum
         \Illuminate\Support\Facades\Cache::flush();
 
-        $this->info('✅ Semua cache berhasil dibersihkan!');
+        $this->info('Semua cache berhasil dibersihkan!');
 
         return Command::SUCCESS;
     }

@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\HalteController;
 use App\Http\Controllers\Api\KoridorController;
 use App\Http\Controllers\Api\RuteController;
-use App\Http\Controllers\TransportasiController;
 use App\Http\Controllers\Api\PencarianLogApiController;
 use App\Http\Controllers\Api\GeocodingController;
 

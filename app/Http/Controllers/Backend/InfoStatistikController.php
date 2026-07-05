@@ -41,7 +41,7 @@ class InfoStatistikController extends Controller
 
         InfoStatistik::create($request->all());
 
-        return redirect()->route('info_statistik.index')->with('success', 'Data Berhasil Disimpan');
+        return redirect()->route('admin.info_statistik.index')->with('success', 'Data Berhasil Disimpan');
     }
 
     /**
@@ -79,7 +79,7 @@ class InfoStatistikController extends Controller
 
         $data->update($request->all());
 
-        return redirect()->route('info_statistik.index')->with('success', 'Data Berhasil Diupdate');
+        return redirect()->route('admin.info_statistik.index')->with('success', 'Data Berhasil Diupdate');
     }
 
     /**
@@ -102,6 +102,6 @@ class InfoStatistikController extends Controller
 
         $data->delete();
 
-        return redirect()->route('info_statistik.index')->with('success', 'Data Berhasil Dihapus');
+        return redirect()->route('admin.info_statistik.index')->with('success', 'Data Berhasil Dihapus');
     }
 }

@@ -157,19 +157,28 @@ class NavigasiService
             ->select('route_id', DB::raw('MIN(trip_id) as trip_id'))
             ->groupBy('route_id', 'direction_id');
 
+        // $segments = DB::table('tb_stop_times as st1')
+        //     ->join('tb_stop_times as st2', function ($join) {
+        //         $join->on('st1.trip_id', '=', 'st2.trip_id')
+        //             ->on(DB::raw('st1.stop_sequence + 1'), '=', 'st2.stop_sequence');
+        //     })
+        //     ->joinSub($subQueryTrips, 't_valid', function ($join) {
+        //         $join->on('st1.trip_id', '=', 't_valid.trip_id');
+        //     })
+        //     ->join('tb_trips as t', 'st1.trip_id', '=', 't.trip_id')
+        //     ->select('st1.stop_id as awal', 'st2.stop_id as tujuan', 't.route_id', 'st1.trip_id')
+        //     ->distinct()
+        //     ->get();
+        // =========================================================================
         $segments = DB::table('tb_stop_times as st1')
             ->join('tb_stop_times as st2', function ($join) {
                 $join->on('st1.trip_id', '=', 'st2.trip_id')
                     ->on(DB::raw('st1.stop_sequence + 1'), '=', 'st2.stop_sequence');
             })
-            ->joinSub($subQueryTrips, 't_valid', function ($join) {
-                $join->on('st1.trip_id', '=', 't_valid.trip_id');
-            })
             ->join('tb_trips as t', 'st1.trip_id', '=', 't.trip_id')
             ->select('st1.stop_id as awal', 'st2.stop_id as tujuan', 't.route_id', 'st1.trip_id')
             ->distinct()
             ->get();
-        // =========================================================================
 
 
         // 4. Buat edge perjalanan (dalam satu koridor)
@@ -276,7 +285,6 @@ class NavigasiService
     /**
      * Ambil angka dasar dari route_id (misal 13 dari 13B, 10 dari 10D)
      */
-    // SEBELUMNYA: private function getCoreRoute($routeId)
     public function getCoreRoute($routeId)
     {
         if (preg_match('/^(\d+)/', $routeId, $matches)) {

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Poi;
-use App\Models\Stop;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -47,7 +46,7 @@ class PoiGeocodingService
 
     /**
      * Cari halte terdekat dengan radius bertahap (2km, 5km, 10km)
-     * OPTIMASI: Menggunakan bounding box terlebih dahulu untuk mempersempit pencarian.
+     * optimasi dengan bounding box terlebih dahulu untuk mempersempit pencarian.
      *
      * @param float $lat
      * @param float $lng
@@ -103,7 +102,7 @@ class PoiGeocodingService
     }
 
     /**
-     * Hitung jarak Haversine (meter) – digunakan untuk fallback jika diperlukan
+     * Hitung jarak Haversine (meter) untuk fallback jika diperlukan
      *
      * @param float $lat1
      * @param float $lon1
