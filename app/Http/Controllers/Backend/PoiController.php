@@ -7,7 +7,7 @@ use App\Models\Poi;
 use App\Services\PoiGeocodingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB; // <-- PASTIKAN INI ADA
+use Illuminate\Support\Facades\DB;
 
 class PoiController extends Controller
 {

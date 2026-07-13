@@ -88,11 +88,11 @@
                             <th>Halaman Frontend</th>
                             <td>
                                 <!-- <a href="{{ url('/frontend') }}" class="btn btn-sm btn-success" target="_blank">
-                                    <i class="fas fa-globe"></i> Lihat Profile
-                                </a> -->
+                                        <i class="fas fa-globe"></i> Lihat Profile
+                                    </a> -->
                                 <!-- <a href="{{ url('/') }}" class="btn btn-sm btn-success">
-                                    <i class="fas fa-globe"></i> Lihat Profile
-                                </a> -->
+                                        <i class="fas fa-globe"></i> Lihat Profile
+                                    </a> -->
                                 <a href="{{ route('frontend.explore') }}" class="btn btn-sm btn-success">
                                     <i class="fas fa-globe"></i> Menu Utama
                                 </a>

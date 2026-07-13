@@ -14,13 +14,13 @@
     </select>
 
     <label>Gambar</label>
-    @if(!$readonly)
-    <input type="file" name="gambar" class="form-control">
+    @if (!$readonly)
+        <input type="file" name="gambar" class="form-control">
     @endif
 
-    @if(isset($data->gambar))
-    <br>
-    <img src="{{ asset('upload/destinasi/' . $data->gambar) }}" width="120">
+    @if (isset($data->gambar))
+        <br>
+        <img src="{{ asset('upload/destinasi/' . $data->gambar) }}" width="120">
     @endif
 
 </div>

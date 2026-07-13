@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
-use App\Models\PencarianLog; // <-- TAMBAHKAN INI
+use App\Models\PencarianLog;
 
 class AlgoritmaController extends Controller
 {
     public function index(Request $request)
     {
-        // Ambil data rute terakhir dari session (jika ada)
+        // Ambil data rute terakhir dari session jika ada
         $lastRoute = Session::get('last_route_calculation', null);
 
         if ($lastRoute) {
@@ -24,7 +24,7 @@ class AlgoritmaController extends Controller
             $lastRoute = $request->route_data;
         }
 
-        // ==================== TAMBAHKAN INI UNTUK LOG ====================
+        // ==================== LOG ====================
         // Ambil data dari log pencarian jika ada parameter log_id
         $logData = null;
         $logId = $request->get('log_id');
@@ -32,7 +32,7 @@ class AlgoritmaController extends Controller
 
         if ($logId) {
             try {
-                // JIKA FROM_SESSION = 1, AMBIL DARI SESSION (LENGKAP)
+                // Jika FROM_SESSION = 1, ambil dari session
                 if ($fromSession && $lastRoute) {
                     \Illuminate\Support\Facades\Log::info('=== SESSION DATA ===');
                     \Illuminate\Support\Facades\Log::info('total_stops: ' . ($lastRoute['total_stops'] ?? 0));
@@ -50,12 +50,12 @@ class AlgoritmaController extends Controller
                     $logData['execution_time'] = $lastRoute['execution_time'] ?? 0;
                     $logData['timestamp'] = now()->toDateTimeString();
                 }
-                // JIKA TIDAK, AMBIL DARI DATABASE (RINGKASAN)
+                // Jika tidak, ambil dari database (ringkasan)
                 else {
                     $log = PencarianLog::with(['halteAwal', 'halteTujuan'])->find($logId);
 
                     if ($log) {
-                        // COBA BACA JSON DARI DATABASE TERLEBIH DAHULU
+                        // Coba baca json dari database terlebih dahulu
                         $routePath = null;
                         $koridors = null;
                         $walkingInfo = null;

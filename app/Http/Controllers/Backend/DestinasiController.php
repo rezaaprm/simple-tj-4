@@ -34,11 +34,11 @@ class DestinasiController extends Controller
         $request->validate([
             'nama' => 'required|string',
             'kategori' => 'required|string',
-            // bebas file tipe apa apapun supaya mencegah error
+            // Bebas file tipe apa apapun supaya mencegah error
             'gambar' => 'nullable|file|max:2048'
         ]);
 
-        // default gambar
+        // Default gambar
         $namaFile = 'default.jpg';
 
         if ($request->hasFile('gambar')) {
@@ -47,14 +47,14 @@ class DestinasiController extends Controller
             if ($file->isValid()) {
                 $ext = strtolower($file->getClientOriginalExtension());
 
-                // HANYA TERIMA JPG/PNG
+                // Hanya Terima JPG/PNG
                 if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
 
                     $namaFile = time() . '_' . $file->getClientOriginalName();
                     $file->move(public_path('upload/destinasi'), $namaFile);
                 }
 
-                // file tipe selain itu (webp dll) akan DIABAIKAN TANPA ERROR
+                // File tipe selain itu (misal webp dll) akan diabaikan tanpa error
             }
         }
 
@@ -95,11 +95,11 @@ class DestinasiController extends Controller
         $request->validate([
             'nama' => 'required|string',
             'kategori' => 'required|string',
-            // tidak wajib & bebas file
+            // Tidak wajib & bebas file
             'gambar' => 'nullable|file|max:2048'
         ]);
 
-        // default = gambar lama
+        // Default = gambar lama
         $namaFile = $data->gambar;
 
         if ($request->hasFile('gambar')) {
@@ -108,19 +108,19 @@ class DestinasiController extends Controller
             if ($file->isValid()) {
                 $ext = strtolower($file->getClientOriginalExtension());
 
-                // hanya jpg/png
+                // Hanya jpg/png
                 if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
 
                     $namaFile = time() . '_' . $file->getClientOriginalName();
                     $file->move(public_path('upload/destinasi'), $namaFile);
 
-                    // hapus gambar lama
+                    // Hapus gambar lama
                     if ($data->gambar && file_exists(public_path('upload/destinasi/' . $data->gambar))) {
                         unlink(public_path('upload/destinasi/' . $data->gambar));
                     }
                 }
 
-                // webp dll → DIABAIKAN
+                // Tipe webp dll → diabaikan
             }
         }
 
@@ -151,7 +151,7 @@ class DestinasiController extends Controller
     {
         $data = Destinasi::findOrFail($id);
 
-        // hapus file gambar
+        // Hapus file gambar
         if ($data->gambar && file_exists(public_path('upload/destinasi/' . $data->gambar))) {
             unlink(public_path('upload/destinasi/' . $data->gambar));
         }

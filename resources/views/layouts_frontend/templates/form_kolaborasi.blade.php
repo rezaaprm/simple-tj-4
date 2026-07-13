@@ -19,11 +19,11 @@
 
 <div class="form-group">
     <label>Gambar</label>
-    @if(!$readonly)
-    <input type="file" name="gambar" class="form-control">
+    @if (!$readonly)
+        <input type="file" name="gambar" class="form-control">
     @endif
 
-    @if(isset($data))
-    <img src="{{ asset('upload/kolaborasi/'.$data->gambar) }}" width="120" class="mt-2">
+    @if (isset($data))
+        <img src="{{ asset('upload/kolaborasi/' . $data->gambar) }}" width="120" class="mt-2">
     @endif
 </div>

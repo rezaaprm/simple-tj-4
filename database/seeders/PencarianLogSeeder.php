@@ -13,7 +13,7 @@ class PencarianLogSeeder extends Seeder
             $this->command->info('Import PencarianLogSeeder');
         }
 
-        // langsung insert kalau kosong, tanpa truncate
+        // Langsung insert kalau kosong, tanpa truncate
         if (DB::table('tb_pencarian_log')->count() > 0) {
             if ($this->command) {
                 $this->command->warn('Tabel tb_pencarian_log sudah berisi, Seeder dilewati');

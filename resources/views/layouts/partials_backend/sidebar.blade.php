@@ -29,7 +29,7 @@
             </li>
         @endif
 
-        <!-- ===== MENU ALGORITMA (khusus admin) ===== -->
+        <!-- ===== Menu Algoritma (khusus admin) ===== -->
         @if (Auth::guard('admin')->check())
             <li class="nav-item">
                 <a href="{{ route('admin.algoritma') }}" class="nav-link {{ request()->routeIs('admin.algoritma') ? 'active' : '' }}">

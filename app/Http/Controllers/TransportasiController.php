@@ -22,7 +22,7 @@ class TransportasiController extends Controller
             // Ambil data dari cache
             $routesData = $this->gtfsCache->getRoutesWithStopsAndShapes();
 
-            // DEBUG: Cek apakah data terisi
+            // Debug cek apakah data terisi
             if (empty($routesData)) {
                 Log::error('routesData kosong!');
             } else {

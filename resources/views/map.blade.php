@@ -44,17 +44,17 @@
                             </div>
 
                             <!-- <div class="row">
-                                                                                                                                                                                <div class="col-6">
-                                                                                                                                                                                    <button class="btn btn-secondary btn-block btn-sm" id="clearBtn" onclick="clearRoute()" disabled>
-                                                                                                                                                                                        <i class="fas fa-undo"></i> Reset
-                                                                                                                                                                                    </button>
-                                                                                                                                                                                </div>
-                                                                                                                                                                                <div class="col-6">
-                                                                                                                                                                                    <button class="btn btn-warning btn-block btn-sm" id="routeBtn" onclick="calculateRoute()" disabled>
-                                                                                                                                                                                        <i class="fas fa-route"></i> Cari
-                                                                                                                                                                                    </button>
-                                                                                                                                                                                </div>
-                                                                                                                                                                            </div> -->
+                                                                                                                                                                                        <div class="col-6">
+                                                                                                                                                                                            <button class="btn btn-secondary btn-block btn-sm" id="clearBtn" onclick="clearRoute()" disabled>
+                                                                                                                                                                                                <i class="fas fa-undo"></i> Reset
+                                                                                                                                                                                            </button>
+                                                                                                                                                                                        </div>
+                                                                                                                                                                                        <div class="col-6">
+                                                                                                                                                                                            <button class="btn btn-warning btn-block btn-sm" id="routeBtn" onclick="calculateRoute()" disabled>
+                                                                                                                                                                                                <i class="fas fa-route"></i> Cari
+                                                                                                                                                                                            </button>
+                                                                                                                                                                                        </div>
+                                                                                                                                                                                    </div> -->
 
                             <div class="row">
                                 <div class="col-6">
@@ -1177,6 +1177,7 @@
                     }
                 }
             }
+            window.graph = graph;
             const distances = {},
                 previous = {},
                 prevInfo = {},
